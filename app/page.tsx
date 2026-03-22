@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import Reviews from "./components/Reviews";
 import { Heart, ShoppingCart, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
