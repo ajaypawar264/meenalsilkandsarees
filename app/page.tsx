@@ -848,7 +848,7 @@ export default function Home() {
   </div>
 
   <a
-    href="https://wa.me/919561624194"
+    href="https://wa.me/9518355820"
     target="_blank"
     rel="noreferrer"
     className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-green-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-green-600"

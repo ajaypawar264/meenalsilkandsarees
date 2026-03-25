@@ -62,14 +62,14 @@ export default function PaymentPage() {
 
         <div className="mt-6 flex justify-center">
           <img
-            src="\qr.jpeg"
+            src="\qr2.jpeg"
             alt="UPI QR Code"
             className="w-64 rounded-xl border border-white/10 bg-white p-2"
           />
         </div>
 
         <p className="mt-4 text-center text-base font-semibold">
-          UPI ID: yourupi@okaxis
+          UPI ID: Q451984462@ybl
         </p>
 
         <p className="mt-2 text-center text-sm text-white/60">
