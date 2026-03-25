@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -16,12 +17,6 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
 const GST_RATE = 0.05; // 5%
 
 const SHOP_DETAILS = {
@@ -29,7 +24,7 @@ const SHOP_DETAILS = {
   address: "Main Road, Pune, Maharashtra, India",
   phone: "+91 9876543210",
   email: "meenalsilkstore@gmail.com",
-  gstin: "27ABCDE1234F1Z5", // <- tuzha real GSTIN asel tar ithe change kar
+  gstin: "27ABCDE1234F1Z5",
 };
 
 type OrderItemPayload = {
@@ -41,6 +36,7 @@ type OrderItemPayload = {
 };
 
 export default function CartPage() {
+  const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [name, setName] = useState("");
@@ -91,22 +87,6 @@ export default function CartPage() {
   const sgstAmount = useMemo(() => gstAmount / 2, [gstAmount]);
   const grandTotal = useMemo(() => subTotal + gstAmount, [subTotal, gstAmount]);
 
-  const loadRazorpayScript = () => {
-    return new Promise<boolean>((resolve) => {
-      if (document.getElementById("razorpay-checkout-js")) {
-        resolve(true);
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.id = "razorpay-checkout-js";
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
   const clearOrderedItemsFromCart = () => {
     const remainingItems = items.filter((item) => !selectedIds.includes(item.id));
     saveCart(remainingItems);
@@ -125,7 +105,7 @@ export default function CartPage() {
     cleanPhone: string,
     cleanAddress: string,
     paymentType: "COD" | "ONLINE",
-    paymentStatus: "Pending" | "Paid"
+    paymentStatus: "Pending" | "Pending Verification" | "Paid"
   ) => {
     const orderItems: OrderItemPayload[] = selectedItems.map((item) => ({
       id: item.id,
@@ -137,15 +117,17 @@ export default function CartPage() {
 
     const invoiceNumber = generateInvoiceNumber();
 
-    await addDoc(collection(db, "orders"), {
+    const docRef = await addDoc(collection(db, "orders"), {
       customerName: cleanName,
       phone: cleanPhone,
       address: cleanAddress,
       items: orderItems,
 
-      status: "Pending",
       paymentMethod: paymentType,
-      paymentStatus,
+      paymentStatus: paymentStatus,
+      paymentScreenshot: "",
+
+      status: "Pending",
 
       totalAmount: grandTotal,
       subTotal,
@@ -159,9 +141,10 @@ export default function CartPage() {
       billGeneratedAt: serverTimestamp(),
 
       shopDetails: SHOP_DETAILS,
-
       createdAt: serverTimestamp(),
     });
+
+    return docRef;
   };
 
   const handleCODOrder = async (
@@ -188,94 +171,19 @@ export default function CartPage() {
     cleanPhone: string,
     cleanAddress: string
   ) => {
-    const scriptLoaded = await loadRazorpayScript();
+    const docRef = await saveOrderToFirestore(
+      cleanName,
+      cleanPhone,
+      cleanAddress,
+      "ONLINE",
+      "Pending"
+    );
 
-    if (!scriptLoaded) {
-      throw new Error("Razorpay SDK failed to load");
-    }
+    clearOrderedItemsFromCart();
+    setAddress("");
+    setMessage("Order created. Redirecting to payment page...");
 
-    const createOrderRes = await fetch("/api/razorpay/create-order", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        amount: grandTotal,
-      }),
-    });
-
-    const createOrderData = await createOrderRes.json();
-
-    if (!createOrderRes.ok || !createOrderData.success) {
-      throw new Error(createOrderData.message || "Failed to create payment order");
-    }
-
-    const razorpayOrder = createOrderData.order;
-
-    const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      amount: razorpayOrder.amount,
-      currency: razorpayOrder.currency,
-      name: "Meenal Silk and Saree",
-      description: "Order Payment",
-      order_id: razorpayOrder.id,
-      handler: async function (response: any) {
-        try {
-          const verifyRes = await fetch("/api/razorpay/verify-payment", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-
-          const verifyData = await verifyRes.json();
-
-          if (!verifyRes.ok || !verifyData.success) {
-            setMessage(verifyData.message || "Payment verification failed");
-            return;
-          }
-
-          await saveOrderToFirestore(
-            cleanName,
-            cleanPhone,
-            cleanAddress,
-            "ONLINE",
-            "Paid"
-          );
-
-          clearOrderedItemsFromCart();
-          setAddress("");
-          setPaymentMethod("COD");
-          setMessage("Online payment successful ✅ Order placed with GST bill");
-        } catch (error: any) {
-          console.error("Verify/order save error:", error);
-          setMessage(error?.message || "Payment done but order save failed");
-        } finally {
-          setPlacing(false);
-        }
-      },
-      prefill: {
-        name: cleanName,
-        contact: cleanPhone,
-      },
-      theme: {
-        color: "#eab308",
-      },
-      modal: {
-        ondismiss: function () {
-          setPlacing(false);
-          setMessage("Payment cancelled");
-        },
-      },
-    };
-
-    const paymentObject = new window.Razorpay(options);
-    paymentObject.open();
+    router.push(`/payment/${docRef.id}`);
   };
 
   const handleOrder = async () => {
@@ -501,7 +409,7 @@ export default function CartPage() {
                     checked={paymentMethod === "ONLINE"}
                     onChange={() => setPaymentMethod("ONLINE")}
                   />
-                  Online Payment
+                  UPI / QR Payment
                 </label>
               </div>
 
@@ -515,7 +423,7 @@ export default function CartPage() {
                   ? "Processing..."
                   : paymentMethod === "COD"
                   ? "Place COD Order"
-                  : "Proceed to Online Payment"}
+                  : "Proceed to Payment Page"}
               </button>
 
               {message && (
@@ -523,7 +431,8 @@ export default function CartPage() {
                   className={`text-sm ${
                     message.includes("successfully") ||
                     message.includes("created") ||
-                    message.includes("successful")
+                    message.includes("successful") ||
+                    message.includes("Redirecting")
                       ? "text-green-600"
                       : "text-red-600"
                   }`}

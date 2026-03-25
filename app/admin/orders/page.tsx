@@ -23,6 +23,12 @@ type OrderItem = {
 
 type OrderStatus = "Pending" | "Processing" | "Delivered" | "Cancelled";
 
+type PaymentStatus =
+  | "Pending"
+  | "Unpaid"
+  | "Pending Verification"
+  | "Paid";
+
 type Order = {
   id: string;
   customerName: string;
@@ -31,7 +37,8 @@ type Order = {
   totalAmount: number;
   status: OrderStatus;
   paymentMethod?: "COD" | "ONLINE";
-  paymentStatus?: "Pending" | "Unpaid" | "Paid";
+  paymentStatus?: PaymentStatus;
+  paymentScreenshot?: string;
   createdAt?: any;
   items: OrderItem[];
   orderNumber?: string;
@@ -171,6 +178,45 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const verifyPayment = async (orderId: string) => {
+    try {
+      await updateDoc(doc(db, "orders", orderId), {
+        paymentStatus: "Paid",
+        status: "Processing",
+        updatedAt: serverTimestamp(),
+      });
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId
+            ? { ...order, paymentStatus: "Paid", status: "Processing" }
+            : order
+        )
+      );
+
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder((prev) =>
+          prev
+            ? { ...prev, paymentStatus: "Paid", status: "Processing" }
+            : prev
+        );
+      }
+
+      if (billOrder?.id === orderId) {
+        setBillOrder((prev) =>
+          prev
+            ? { ...prev, paymentStatus: "Paid", status: "Processing" }
+            : prev
+        );
+      }
+
+      alert("Payment verified successfully");
+    } catch (error) {
+      console.error("Payment verify error:", error);
+      alert("Payment verify zala nahi.");
+    }
+  };
+
   const handlePrintBill = (order: Order) => {
     setBillOrder(order);
 
@@ -180,7 +226,7 @@ export default function AdminOrdersPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fff8f3] text-[#3b1f1f] p-4 md:p-8">
+    <main className="min-h-screen bg-[#fff8f3] p-4 text-[#3b1f1f] md:p-8">
       <style jsx global>{`
         @media print {
           body * {
@@ -207,23 +253,23 @@ export default function AdminOrdersPage() {
         }
       `}</style>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto max-w-7xl">
         <div className="no-print mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-[#7a2848]">
+          <h1 className="text-3xl font-bold text-[#7a2848] md:text-4xl">
             Order Management
           </h1>
-          <p className="mt-2 text-sm md:text-base text-[#6b4a4a]">
+          <p className="mt-2 text-sm text-[#6b4a4a] md:text-base">
             Orders manage kara, status update kara, bill bagha ani print kara.
           </p>
         </div>
 
-        <div className="no-print grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="no-print mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
           <button
             onClick={() => setSelectedStatus("All")}
             className={`rounded-2xl border p-4 text-left shadow-sm transition ${
               selectedStatus === "All"
-                ? "bg-[#7a2848] text-white border-[#7a2848]"
-                : "bg-white border-[#ead7d7] hover:border-[#7a2848]"
+                ? "border-[#7a2848] bg-[#7a2848] text-white"
+                : "border-[#ead7d7] bg-white hover:border-[#7a2848]"
             }`}
           >
             <p className="text-sm">All Orders</p>
@@ -234,8 +280,8 @@ export default function AdminOrdersPage() {
             onClick={() => setSelectedStatus("Pending")}
             className={`rounded-2xl border p-4 text-left shadow-sm transition ${
               selectedStatus === "Pending"
-                ? "bg-yellow-500 text-white border-yellow-500"
-                : "bg-white border-[#ead7d7] hover:border-yellow-500"
+                ? "border-yellow-500 bg-yellow-500 text-white"
+                : "border-[#ead7d7] bg-white hover:border-yellow-500"
             }`}
           >
             <p className="text-sm">Pending Orders</p>
@@ -246,8 +292,8 @@ export default function AdminOrdersPage() {
             onClick={() => setSelectedStatus("Processing")}
             className={`rounded-2xl border p-4 text-left shadow-sm transition ${
               selectedStatus === "Processing"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white border-[#ead7d7] hover:border-blue-600"
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-[#ead7d7] bg-white hover:border-blue-600"
             }`}
           >
             <p className="text-sm">Processing Orders</p>
@@ -258,8 +304,8 @@ export default function AdminOrdersPage() {
             onClick={() => setSelectedStatus("Delivered")}
             className={`rounded-2xl border p-4 text-left shadow-sm transition ${
               selectedStatus === "Delivered"
-                ? "bg-green-600 text-white border-green-600"
-                : "bg-white border-[#ead7d7] hover:border-green-600"
+                ? "border-green-600 bg-green-600 text-white"
+                : "border-[#ead7d7] bg-white hover:border-green-600"
             }`}
           >
             <p className="text-sm">Delivered Orders</p>
@@ -270,8 +316,8 @@ export default function AdminOrdersPage() {
             onClick={() => setSelectedStatus("Cancelled")}
             className={`rounded-2xl border p-4 text-left shadow-sm transition ${
               selectedStatus === "Cancelled"
-                ? "bg-red-600 text-white border-red-600"
-                : "bg-white border-[#ead7d7] hover:border-red-600"
+                ? "border-red-600 bg-red-600 text-white"
+                : "border-[#ead7d7] bg-white hover:border-red-600"
             }`}
           >
             <p className="text-sm">Cancelled Orders</p>
@@ -290,7 +336,8 @@ export default function AdminOrdersPage() {
             />
 
             <div className="text-sm text-[#6b4a4a]">
-              Showing <span className="font-bold">{filteredOrders.length}</span> orders
+              Showing <span className="font-bold">{filteredOrders.length}</span>{" "}
+              orders
             </div>
           </div>
         </div>
@@ -361,7 +408,7 @@ export default function AdminOrdersPage() {
                         </td>
                         <td className="p-4 text-sm">{getOrderDate(order.createdAt)}</td>
                         <td className="p-4">
-                          <div className="flex min-w-[150px] flex-col gap-2">
+                          <div className="flex min-w-[170px] flex-col gap-2">
                             <button
                               onClick={() => setSelectedOrder(order)}
                               className="rounded-lg bg-[#7a2848] px-3 py-2 text-sm text-white hover:opacity-90"
@@ -382,6 +429,15 @@ export default function AdminOrdersPage() {
                             >
                               Print Bill
                             </button>
+
+                            {order.paymentStatus === "Pending Verification" && (
+                              <button
+                                onClick={() => verifyPayment(order.id)}
+                                className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:opacity-90"
+                              >
+                                Verify Payment
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -434,6 +490,26 @@ export default function AdminOrdersPage() {
                     <span className="font-semibold">Date:</span>{" "}
                     {getOrderDate(selectedOrder.createdAt)}
                   </p>
+
+                  {selectedOrder.paymentScreenshot && (
+                    <div className="mt-4">
+                      <p className="mb-2 font-semibold">Payment Screenshot:</p>
+                      <img
+                        src={selectedOrder.paymentScreenshot}
+                        alt="Payment Screenshot"
+                        className="w-full max-w-xs rounded-xl border border-[#ead7d7]"
+                      />
+                    </div>
+                  )}
+
+                  {selectedOrder.paymentStatus === "Pending Verification" && (
+                    <button
+                      onClick={() => verifyPayment(selectedOrder.id)}
+                      className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:opacity-90"
+                    >
+                      Verify Payment
+                    </button>
+                  )}
                 </div>
 
                 <div>

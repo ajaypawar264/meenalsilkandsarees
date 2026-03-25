@@ -1,24 +1,27 @@
 "use client";
+
 export const dynamic = "force-dynamic";
+
 import Reviews from "./components/Reviews";
-import { Heart, ShoppingCart, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, query, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { addToCart } from "@/lib/cart";
 import Header from "./components/Header";
 
 type Product = {
   id: string;
-  name: string;
-  price: number;
+  name?: string;
+  price?: number;
   stock?: number;
-  category: string;
+  category?: string;
   subCategory?: string;
-  inStock: boolean;
+  inStock?: boolean;
   imageUrl?: string;
+  imageBase64?: string; // 🔥 ADD THIS
+  createdAt?: any;
 };
 
 type CategorySlide = {
@@ -26,11 +29,7 @@ type CategorySlide = {
   image: string;
 };
 
-const categoryOptions = [
-  "Pure Silk Handloom",
-  "Cotton",
-  "Today Arrival",
-];
+const categoryOptions = ["Pure Silk Handloom", "Cotton", "Today Arrival"];
 
 const subCategoryOptions: Record<string, string[]> = {
   "Pure Silk Handloom": [
@@ -43,11 +42,7 @@ const subCategoryOptions: Record<string, string[]> = {
     "Maheshwari",
     "Irkal Temple Border",
   ],
-  Cotton: [
-    "Gadhwal Cotton",
-    "Maheshwari Cotton",
-    "Printed Cotton",
-  ],
+  Cotton: ["Gadhwal Cotton", "Maheshwari Cotton", "Printed Cotton"],
   "Today Arrival": [
     "Paithani",
     "Gadhwal",
@@ -63,15 +58,46 @@ const subCategoryOptions: Record<string, string[]> = {
   ],
 };
 
+function getYouTubeId(url: string) {
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.hostname.includes("youtu.be")) {
+      return parsed.pathname.replace("/", "");
+    }
+
+    if (parsed.hostname.includes("youtube.com")) {
+      if (parsed.pathname.startsWith("/shorts/")) {
+        return parsed.pathname.split("/shorts/")[1].split("/")[0];
+      }
+
+      if (parsed.pathname.startsWith("/embed/")) {
+        return parsed.pathname.split("/embed/")[1].split("/")[0];
+      }
+
+      return parsed.searchParams.get("v") || "";
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+function getInstagramEmbedUrl(url: string) {
+  const cleanUrl = url.split("?")[0];
+  return cleanUrl.endsWith("/") ? `${cleanUrl}embed` : `${cleanUrl}/embed`;
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSubCategory, setSelectedSubCategory] = useState("All");
+  const [dailyOfferVideo, setDailyOfferVideo] = useState("");
   const router = useRouter();
 
   useEffect(() => {
-    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "products"));
 
     const unsubscribe = onSnapshot(
       q,
@@ -80,7 +106,14 @@ export default function Home() {
           id: docItem.id,
           ...(docItem.data() as Omit<Product, "id">),
         }));
-        setProducts(items);
+
+        const sortedItems = items.sort((a, b) => {
+          const aTime = a?.createdAt?.seconds ?? 0;
+          const bTime = b?.createdAt?.seconds ?? 0;
+          return bTime - aTime;
+        });
+
+        setProducts(sortedItems);
       },
       (error) => {
         console.error("Products fetch error:", error);
@@ -90,10 +123,22 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, "dailyOffer", "current"), (snap) => {
+      if (snap.exists()) {
+        setDailyOfferVideo(snap.data()?.videoUrl || "");
+      } else {
+        setDailyOfferVideo("");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const categories = useMemo(() => {
     const dbCategories = Array.from(
       new Set(products.map((p) => p.category).filter(Boolean))
-    );
+    ) as string[];
 
     const merged = Array.from(new Set([...categoryOptions, ...dbCategories]));
     return ["All", ...merged];
@@ -106,7 +151,7 @@ export default function Home() {
     const dbSubs = Array.from(
       new Set(
         products
-          .filter((p) => p.category === selectedCategory)
+          .filter((p) => (p.category || "") === selectedCategory)
           .map((p) => p.subCategory)
           .filter(Boolean)
       )
@@ -116,13 +161,13 @@ export default function Home() {
   }, [products, selectedCategory]);
 
   const categorySlides = useMemo<CategorySlide[]>(() => {
-    const uniqueCategories =
-      categories.filter((cat) => cat !== "All");
+    const uniqueCategories = categories.filter((cat) => cat !== "All");
 
     const slides = uniqueCategories.map((cat) => {
       const matchedProduct = products.find(
-        (p) => p.category === cat && p.imageUrl
+        (p) => (p.category || "") === cat && p.imageUrl
       );
+
       return {
         name: cat,
         image:
@@ -156,22 +201,35 @@ export default function Home() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchesSearch = p.name
+      const matchesSearch = (p.name || "")
         .toLowerCase()
         .includes(search.toLowerCase());
 
       const matchesCategory =
-        selectedCategory === "All" || p.category === selectedCategory;
+        selectedCategory === "All" || (p.category || "") === selectedCategory;
 
       const matchesSubCategory =
         selectedSubCategory === "All" ||
-        p.subCategory === selectedSubCategory;
+        (p.subCategory || "") === selectedSubCategory;
 
       return matchesSearch && matchesCategory && matchesSubCategory;
     });
   }, [products, search, selectedCategory, selectedSubCategory]);
 
   const featuredProducts = filteredProducts.slice(0, 8);
+
+  const isYouTube =
+    dailyOfferVideo.includes("youtube.com") ||
+    dailyOfferVideo.includes("youtu.be");
+
+  const isInstagram =
+    dailyOfferVideo.includes("instagram.com/reel/") ||
+    dailyOfferVideo.includes("instagram.com/p/");
+
+  const isDirectVideo =
+    dailyOfferVideo.endsWith(".mp4") ||
+    dailyOfferVideo.endsWith(".webm") ||
+    dailyOfferVideo.endsWith(".ogg");
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#12070b] text-white">
@@ -183,7 +241,6 @@ export default function Home() {
 
       <Header />
 
-      {/* Search + Filter */}
       <section className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 py-5 md:px-6">
           <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/10 shadow-[0_10px_50px_rgba(0,0,0,0.25)] backdrop-blur-xl">
@@ -204,7 +261,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Main Categories */}
           <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
             {categories.map((cat) => (
               <button
@@ -225,7 +281,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Sub Categories */}
           {selectedCategory !== "All" && subCategories.length > 1 && (
             <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
               {subCategories.map((sub) => (
@@ -235,7 +290,7 @@ export default function Home() {
                   onClick={() => setSelectedSubCategory(sub)}
                   className={`whitespace-nowrap rounded-full px-4 py-2 text-sm transition ${
                     selectedSubCategory === sub
-                      ? "bg-white text-[#2b1208] font-semibold"
+                      ? "bg-white font-semibold text-[#2b1208]"
                       : "border border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
                   }`}
                 >
@@ -247,17 +302,30 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Hero */}
       <section className="relative z-10 overflow-hidden">
         <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 md:grid-cols-2 md:px-6 md:py-16">
           <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-[#3b1020]/90 via-[#1f0d16]/90 to-[#12070b]/95 p-8 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl md:p-10">
             <div className="mb-6">
-              <p className="text-base md:text-lg font-extrabold uppercase tracking-[0.45em] text-[#f3c46b]">
-                MEENAL SILK
-              </p>
-              <p className="text-sm md:text-base font-bold tracking-[0.35em] text-[#f3c46b]">
-                AND SAREE
-              </p>
+              <div className="mb-6 flex items-center gap-4">
+  
+  {/* LOGO */}
+  <img
+    src="\logo3.png"   // 👉 tuza PNG nav ithe change kar
+    alt="Meenal Silk Logo"
+    className="h-15 w-15 object-contain rounded-xl bg-white/10 p-1"
+  />
+
+  {/* TEXT */}
+  <div>
+    <p className="text-base font-extrabold uppercase tracking-[0.45em] text-[#f3c46b] md:text-lg">
+      MEENAL SILK
+    </p>
+    <p className="text-sm font-bold tracking-[0.35em] text-[#f3c46b] md:text-base">
+      AND SAREE
+    </p>
+  </div>
+
+</div>
             </div>
 
             <div className="mb-5 h-[2px] w-28 bg-gradient-to-r from-[#f3c46b] to-transparent" />
@@ -309,11 +377,58 @@ export default function Home() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="overflow-hidden rounded-[30px] border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-              <img
-                src="/hero-saree.jpg"
-                alt="Saree"
-                className="h-[420px] w-full object-cover transition duration-500 hover:scale-105"
-              />
+              {dailyOfferVideo ? (
+                <div className="relative h-[420px] w-full bg-black/20">
+                  {isYouTube ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${getYouTubeId(
+                        dailyOfferVideo
+                      )}?autoplay=1&mute=1&loop=1&playlist=${getYouTubeId(
+                        dailyOfferVideo
+                      )}`}
+                      className="h-[420px] w-full"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                    />
+                  ) : isInstagram ? (
+                    <iframe
+                      src={getInstagramEmbedUrl(dailyOfferVideo)}
+                      className="h-[420px] w-full"
+                      allowFullScreen
+                    />
+                  ) : isDirectVideo ? (
+                    <video
+                      key={dailyOfferVideo}
+                      className="h-[420px] w-full object-cover"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      controls
+                      preload="auto"
+                    >
+                      <source src={dailyOfferVideo} />
+                      Your browser does not support the video tag.
+                    </video>
+                  ) : (
+                    <img
+                      src="/hero-saree.jpg"
+                      alt="Saree"
+                      className="h-[420px] w-full object-cover transition duration-500 hover:scale-105"
+                    />
+                  )}
+
+                  <div className="absolute left-3 top-3 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
+                    Daily Offer
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src="/hero-saree.jpg"
+                  alt="Saree"
+                  className="h-[420px] w-full object-cover transition duration-500 hover:scale-105"
+                />
+              )}
             </div>
 
             <div className="mt-10 overflow-hidden rounded-[30px] border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
@@ -327,7 +442,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Highlights */}
       <section className="relative z-10 mx-auto grid max-w-7xl gap-6 px-4 py-8 md:grid-cols-3 md:px-6">
         <div className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg backdrop-blur-xl">
           <p className="text-sm font-medium text-[#f3c46b]">Wedding Special</p>
@@ -358,7 +472,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Categories Auto Slide */}
       <section className="relative z-10 mx-auto max-w-7xl px-4 py-10 md:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div className="hidden flex-1 md:block" />
@@ -414,7 +527,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Products */}
       <section
         id="products"
         className="relative z-10 mx-auto max-w-7xl px-4 py-10 md:px-6"
@@ -446,14 +558,18 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
             {featuredProducts.map((p) => {
-              const fakeOldPrice = Math.round(p.price * 1.45);
-              const discount = Math.max(
-                10,
-                Math.min(
-                  50,
-                  Math.round(((fakeOldPrice - p.price) / fakeOldPrice) * 100)
-                )
-              );
+              const price = Number(p.price || 0);
+              const fakeOldPrice = Math.round(price * 1.45 || 0);
+              const discount =
+                fakeOldPrice > 0
+                  ? Math.max(
+                      10,
+                      Math.min(
+                        50,
+                        Math.round(((fakeOldPrice - price) / fakeOldPrice) * 100)
+                      )
+                    )
+                  : 10;
 
               return (
                 <div
@@ -463,10 +579,9 @@ export default function Home() {
                   <div className="relative h-[320px] w-full overflow-hidden bg-black/20">
                     {p.imageUrl ? (
                       <img
-  src={p.imageUrl}
+  src={p.imageBase64 || p.imageUrl}
   alt={p.name}
-  onClick={() => router.push(`/products/${p.id}`)}
-  className="h-full w-full cursor-pointer object-cover transition duration-300 group-hover:scale-105"
+  className="h-full w-full object-cover"
 />
                     ) : (
                       <div className="flex h-full items-center justify-center text-white/40">
@@ -485,43 +600,43 @@ export default function Home() {
                     )}
 
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition duration-300 group-hover:opacity-100">
-  <div className="flex flex-wrap items-center justify-center gap-3 px-4">
-    <button
-      type="button"
-      onClick={() => router.push(`/products/${p.id}`)}
-      className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-800 shadow-md transition hover:scale-105 hover:text-green-600"
-    >
-      View
-    </button>
+                      <div className="flex flex-wrap items-center justify-center gap-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/products/${p.id}`)}
+                          className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-800 shadow-md transition hover:scale-105 hover:text-green-600"
+                        >
+                          View
+                        </button>
 
-    <button
-      type="button"
-      onClick={() =>
-        addToCart({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          category: p.category,
-          imageUrl: p.imageUrl || "",
-        })
-      }
-      disabled={!p.inStock}
-      className="rounded-full bg-[#f3c46b] px-5 py-2 text-sm font-semibold text-[#2b1208] shadow-md transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      Add to Cart
-    </button>
-  </div>
-</div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addToCart({
+                              id: p.id,
+                              name: p.name || "Product",
+                              price: price,
+                              category: p.category || "",
+                              imageUrl: p.imageUrl || "",
+                            })
+                          }
+                          disabled={!p.inStock}
+                          className="rounded-full bg-[#f3c46b] px-5 py-2 text-sm font-semibold text-[#2b1208] shadow-md transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="p-5">
                     <h4 className="min-h-[64px] text-[20px] font-semibold leading-snug text-white">
-                      {p.name}
+                      {p.name || "Untitled Product"}
                     </h4>
 
                     <div className="mt-3 flex items-end gap-3">
                       <p className="text-2xl font-bold text-[#ffd27a]">
-                        ₹{p.price}
+                        ₹{price}
                       </p>
                       <p className="pb-1 text-base text-white/35 line-through">
                         ₹{fakeOldPrice}
@@ -530,7 +645,7 @@ export default function Home() {
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-[#f3c46b]/20 bg-[#f3c46b]/10 px-3 py-1 text-xs font-medium text-[#ffd98f]">
-                        {p.category}
+                        {p.category || "General"}
                       </span>
 
                       {p.subCategory && (
@@ -555,9 +670,9 @@ export default function Home() {
                       onClick={() =>
                         addToCart({
                           id: p.id,
-                          name: p.name,
-                          price: p.price,
-                          category: p.category,
+                          name: p.name || "Product",
+                          price: price,
+                          category: p.category || "",
                           imageUrl: p.imageUrl || "",
                         })
                       }
@@ -574,7 +689,6 @@ export default function Home() {
         )}
       </section>
 
-      {/* Boutique Info */}
       <section className="relative z-10 mx-auto grid max-w-7xl gap-6 px-4 pb-12 md:grid-cols-3 md:px-6">
         <div className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg backdrop-blur-xl">
           <h4 className="text-xl font-bold text-white">Festival Collection</h4>
@@ -599,96 +713,149 @@ export default function Home() {
           </p>
         </div>
       </section>
-<Reviews />
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 bg-black/25 backdrop-blur-xl">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-4 md:px-6">
-          <div>
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/10 shadow-sm">
-                <img
-                  src="\logo2.png"
-                  alt="Meenal Silk Logo"
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = "none";
-                  }}
-                />
-               
-              </div>
 
-              <div>
-                <h5 className="text-xl font-bold text-[#f3c46b]">Meenal Silk</h5>
-                <p className="text-sm text-white/55">and saree</p>
-              </div>
-            </div>
+      <Reviews />
 
-            <p className="text-sm leading-6 text-white/60">
-              Elegant sarees for every occasion with premium quality, graceful
-              style and timeless beauty.
-            </p>
-          </div>
-
-          <div>
-            <h6 className="mb-4 text-lg font-semibold text-white">Quick Links</h6>
-            <div className="space-y-2 text-sm text-white/60">
-              <p>
-                <Link href="/" className="hover:text-[#f3c46b]">
-                  Home
-                </Link>
-              </p>
-              <p>
-                <Link href="./cart" className="hover:text-[#f3c46b]">
-                  Cart
-                </Link>
-              </p>
-              <p>
-                <Link href="/my-orders" className="hover:text-[#f3c46b]">
-                  My Orders
-                </Link>
-              </p>
-              <p>
-                <Link href="/login" className="hover:text-[#f3c46b]">
-                  Login
-                </Link>
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <h6 className="mb-4 text-lg font-semibold text-white">Contact</h6>
-            <div className="space-y-2 text-sm text-white/60">
-              <p>Phone: +91 9518355820</p>
-              <p>WhatsApp: +91 9561624194</p>
-              <p>Email: meenalsilkstore@gmail.com</p>
-            </div>
-          </div>
-
-          <div>
-            <h6 className="mb-4 text-lg font-semibold text-white">Location</h6>
-            <div className="space-y-2 text-sm text-white/60">
-              <p>Meenal Silk and saree</p>
-              <p>Warje road, Pune, Maharashtra</p>
-              <p>India</p>
-     <a
-  href="https://maps.app.goo.gl/5FSvitdkK3sbzhdn9"
-  target="_blank"
-  rel="noreferrer"
-  className="inline-block text-[#f3c46b] hover:underline"
->
-  View on Google Maps
-</a>
-            </div>
-          </div>
+     <footer className="relative z-10 border-t border-white/10 bg-black/25 backdrop-blur-xl">
+  <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-4 md:px-6">
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/10 shadow-sm">
+          <img
+            src="/logo2.png"
+            alt="Meenal Silk Logo"
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
         </div>
 
-        <div className="border-t border-white/10">
-          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-sm text-white/50 md:flex-row md:items-center md:justify-between md:px-6">
-            <p>© 2026 Meenal Silk and Saree. All rights reserved.</p>
-            <p>Designed for premium saree shopping experience.</p>
-          </div>
+        <div>
+          <h5 className="text-xl font-bold text-[#f3c46b]">Meenal Silk</h5>
+          <p className="text-sm text-white/55">and saree</p>
         </div>
-      </footer>
+      </div>
+
+      <p className="text-sm leading-6 text-white/60">
+        Elegant sarees for every occasion with premium quality, graceful
+        style and timeless beauty.
+      </p>
+    </div>
+
+    <div>
+      <h6 className="mb-4 text-lg font-semibold text-white">Quick Links</h6>
+      <div className="space-y-2 text-sm text-white/60">
+        <p>
+          <Link href="/" className="hover:text-[#f3c46b]">
+            Home
+          </Link>
+        </p>
+        <p>
+          <Link href="/cart" className="hover:text-[#f3c46b]">
+            Cart
+          </Link>
+        </p>
+        <p>
+          <Link href="/my-orders" className="hover:text-[#f3c46b]">
+            My Orders
+          </Link>
+        </p>
+        <p>
+          <Link href="/login" className="hover:text-[#f3c46b]">
+            Login
+          </Link>
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <h6 className="mb-4 text-lg font-semibold text-white">Contact</h6>
+      <div className="space-y-2 text-sm text-white/60">
+        <p>Phone: +91 9518355820</p>
+        <p>WhatsApp: +91 9561624194</p>
+        <p>Email: meenalsilkstore@gmail.com</p>
+      </div>
+
+      <div className="mt-5">
+        <h6 className="mb-3 text-lg font-semibold text-white">Follow Us</h6>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <a
+            href="https://www.facebook.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-white/70 transition hover:text-[#f3c46b]"
+          >
+            Facebook
+          </a>
+
+          <a
+            href="https://www.instagram.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-white/70 transition hover:text-[#f3c46b]"
+          >
+            Instagram
+          </a>
+
+          <a
+            href="https://www.youtube.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-white/70 transition hover:text-[#f3c46b]"
+          >
+            YouTube
+          </a>
+
+          <a
+            href="https://wa.me/919561624194"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-green-300 transition hover:bg-green-500/20"
+          >
+            WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h6 className="mb-4 text-lg font-semibold text-white">Location</h6>
+      <div className="space-y-2 text-sm text-white/60">
+        <p>Meenal Silk and saree</p>
+        <p>
+          Shop no 15/16 Vanashree Palace Tapodham corner near Ambedkar Chowk
+          Warje Pune 411058
+        </p>
+        <p>India</p>
+        <a
+          href="https://maps.app.goo.gl/5FSvitdkK3sbzhdn9"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-block text-[#f3c46b] hover:underline"
+        >
+          View on Google Maps
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div className="border-t border-white/10">
+    <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-sm text-white/50 md:flex-row md:items-center md:justify-between md:px-6">
+      <p>© 2026 Meenal Silk and Saree. All rights reserved.</p>
+      <p>Designed for premium saree shopping experience.</p>
+    </div>
+  </div>
+
+  <a
+    href="https://wa.me/919561624194"
+    target="_blank"
+    rel="noreferrer"
+    className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-green-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-green-600"
+  >
+    <span>WhatsApp</span>
+  </a>
+</footer>
 
       <style jsx>{`
         .category-marquee {

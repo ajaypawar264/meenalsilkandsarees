@@ -30,6 +30,7 @@ type ProductForm = {
   subCategory: string;
   newCategory: string;
   newSubCategory: string;
+  color: string;
   imageUrl: string;
   inStock: boolean;
 };
@@ -53,7 +54,6 @@ const DEFAULT_CATEGORIES = [
   "Cotton Saree",
   "Paithani",
   "Maheshwari",
-  
   "Other",
 ];
 
@@ -228,10 +228,14 @@ export default function AdminDashboardPage() {
     subCategory: "",
     newCategory: "",
     newSubCategory: "",
+    color: "",
     imageUrl: "",
     inStock: true,
   });
+
   const [addingProduct, setAddingProduct] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState("");
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
@@ -306,6 +310,56 @@ export default function AdminDashboardPage() {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith("image/")) {
+        alert("Fakt image file select kar");
+        return;
+      }
+
+      setUploadingImage(true);
+
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+
+        setImagePreview(base64);
+        setProductForm((prev) => ({
+          ...prev,
+          imageUrl: base64,
+        }));
+        setUploadingImage(false);
+      };
+
+      reader.onerror = () => {
+        alert("Image upload zala nahi");
+        setImagePreview("");
+        setProductForm((prev) => ({
+          ...prev,
+          imageUrl: "",
+        }));
+        setUploadingImage(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Image upload error:", error);
+      alert("Image upload zala nahi");
+      setImagePreview("");
+      setProductForm((prev) => ({
+        ...prev,
+        imageUrl: "",
+      }));
+      setUploadingImage(false);
+    }
   };
 
   const subCategoryOptions = useMemo(() => {
@@ -426,6 +480,16 @@ export default function AdminDashboardPage() {
       return;
     }
 
+    if (!productForm.color.trim()) {
+      alert("Color enter kara.");
+      return;
+    }
+
+    if (!productForm.imageUrl) {
+      alert("Photo upload kara.");
+      return;
+    }
+
     try {
       setAddingProduct(true);
 
@@ -435,7 +499,8 @@ export default function AdminDashboardPage() {
         stock: Number(productForm.stock || 0),
         category: finalCategory,
         subCategory: finalSubCategory,
-        imageUrl: productForm.imageUrl.trim(),
+        color: productForm.color.trim(),
+        imageUrl: productForm.imageUrl,
         inStock: productForm.inStock,
         createdAt: serverTimestamp(),
       });
@@ -450,9 +515,11 @@ export default function AdminDashboardPage() {
         subCategory: "",
         newCategory: "",
         newSubCategory: "",
+        color: "",
         imageUrl: "",
         inStock: true,
       });
+      setImagePreview("");
     } catch (error) {
       console.error("Add product error:", error);
       alert("Product add karta ala nahi.");
@@ -487,6 +554,13 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <Link
+                href="/admin/daily-offer"
+                className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white hover:bg-white/15"
+              >
+                Daily Offer Video
+              </Link>
+
               <Link
                 href="/"
                 className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 transition hover:bg-white/20"
@@ -649,6 +723,17 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
+                <label className="mb-2 block text-sm text-white/80">Color</label>
+                <input
+                  type="text"
+                  value={productForm.color}
+                  onChange={(e) => handleProductChange("color", e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
+                  placeholder="Ex. Red, Pink, Blue"
+                />
+              </div>
+
+              <div>
                 <label className="mb-2 block text-sm text-white/80">Category</label>
                 <select
                   value={productForm.category}
@@ -723,14 +808,31 @@ export default function AdminDashboardPage() {
               )}
 
               <div>
-                <label className="mb-2 block text-sm text-white/80">Image URL</label>
+                <label className="mb-2 block text-sm text-white/80">
+                  Upload Photo
+                </label>
+
                 <input
-                  type="text"
-                  value={productForm.imageUrl}
-                  onChange={(e) => handleProductChange("imageUrl", e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
-                  placeholder="Enter image url"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white file:mr-3 file:rounded-xl file:border-0 file:bg-yellow-400 file:px-4 file:py-2 file:font-semibold file:text-black"
                 />
+
+                {uploadingImage ? (
+                  <p className="mt-3 text-sm text-yellow-300">Photo uploading...</p>
+                ) : null}
+
+                {imagePreview ? (
+                  <div className="mt-4">
+                    <p className="mb-2 text-xs text-white/60">Preview</p>
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="h-28 w-28 rounded-2xl border border-white/10 object-cover"
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
@@ -760,7 +862,7 @@ export default function AdminDashboardPage() {
 
               <button
                 type="submit"
-                disabled={addingProduct}
+                disabled={addingProduct || uploadingImage}
                 className="mt-2 rounded-2xl bg-yellow-400 px-4 py-3 font-bold text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {addingProduct ? "Adding Product..." : "Add Product"}
