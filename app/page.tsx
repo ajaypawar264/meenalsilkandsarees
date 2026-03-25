@@ -781,7 +781,7 @@ export default function Home() {
         <h6 className="mb-3 text-lg font-semibold text-white">Follow Us</h6>
         <div className="flex flex-wrap gap-3 text-sm">
           <a
-            href="https://www.facebook.com/"
+            href="https://www.facebook.com/share/18RMrXwGUX/"
             target="_blank"
             rel="noreferrer"
             className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-white/70 transition hover:text-[#f3c46b]"
@@ -790,7 +790,7 @@ export default function Home() {
           </a>
 
           <a
-            href="https://www.instagram.com/"
+            href="https://www.instagram.com/meenal__silkandsarees?igsh=NnBlNTkxdG5qZmtm/"
             target="_blank"
             rel="noreferrer"
             className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-white/70 transition hover:text-[#f3c46b]"
@@ -799,7 +799,7 @@ export default function Home() {
           </a>
 
           <a
-            href="https://www.youtube.com/"
+            href="https://youtube.com/@meenal_silkandsarees?si=bRFkSV9SwD_Bze1j/"
             target="_blank"
             rel="noreferrer"
             className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-white/70 transition hover:text-[#f3c46b]"
