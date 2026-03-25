@@ -1,6 +1,8 @@
 "use client";
+
 export const dynamic = "force-dynamic";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { doc, getDoc } from "firebase/firestore";
@@ -13,9 +15,9 @@ type Product = {
   name: string;
   price: number;
   stock?: number;
-  category: string;
+  category?: string;
   subCategory?: string;
-  inStock: boolean;
+  inStock?: boolean;
   imageUrl?: string;
   description?: string;
 };
@@ -23,7 +25,11 @@ type Product = {
 export default function ProductDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const productId = params?.id as string;
+
+  const productId = useMemo(() => {
+    const id = params?.id;
+    return Array.isArray(id) ? id[0] : (id as string | undefined);
+  }, [params]);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,23 +38,35 @@ export default function ProductDetailsPage() {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        if (!productId) return;
-
-        const ref = doc(db, "products", productId);
-        const snap = await getDoc(ref);
-
-        if (!snap.exists()) {
-          setProduct(null);
+        if (!productId) {
           setLoading(false);
           return;
         }
 
+        const productRef = doc(db, "products", productId);
+        const snap = await getDoc(productRef);
+
+        if (!snap.exists()) {
+          setProduct(null);
+          return;
+        }
+
+        const data = snap.data() as Omit<Product, "id">;
+
         setProduct({
           id: snap.id,
-          ...(snap.data() as Omit<Product, "id">),
+          name: data.name || "Unnamed Product",
+          price: Number(data.price ?? 0),
+          stock: Number(data.stock ?? 0),
+          category: data.category || "Uncategorized",
+          subCategory: data.subCategory || "",
+          inStock: Boolean(data.inStock ?? (Number(data.stock ?? 0) > 0)),
+          imageUrl: data.imageUrl || "",
+          description: data.description || "",
         });
       } catch (error) {
         console.error("Product fetch error:", error);
+        setProduct(null);
       } finally {
         setLoading(false);
       }
@@ -56,6 +74,32 @@ export default function ProductDetailsPage() {
 
     fetchProduct();
   }, [productId]);
+
+  const normalizedImageUrl = useMemo(() => {
+    if (!product?.imageUrl) return "";
+
+    return product.imageUrl
+      .replace(/\\/g, "/")
+      .replace(/^public\//, "/")
+      .replace(/^public/, "/");
+  }, [product?.imageUrl]);
+
+  const canShowImage = Boolean(normalizedImageUrl) && !imgError;
+
+  const fakeOldPrice = useMemo(() => {
+    return Math.max(Math.round((product?.price || 0) * 1.45), product?.price || 0);
+  }, [product?.price]);
+
+  const discount = useMemo(() => {
+    if (!product?.price || !fakeOldPrice || fakeOldPrice <= product.price) return 10;
+    return Math.max(
+      10,
+      Math.min(
+        50,
+        Math.round(((fakeOldPrice - product.price) / fakeOldPrice) * 100)
+      )
+    );
+  }, [product?.price, fakeOldPrice]);
 
   if (loading) {
     return (
@@ -75,33 +119,15 @@ export default function ProductDetailsPage() {
         <div className="mx-auto max-w-7xl px-4 py-20 text-center">
           <h1 className="text-3xl font-bold text-red-400">Product not found</h1>
           <Link
-            href="/"
+            href="/products"
             className="mt-6 inline-block rounded-xl bg-gradient-to-r from-[#b88639] to-[#e2b45b] px-6 py-3 font-semibold text-[#2b1208]"
           >
-            Back to Home
+            Back to Products
           </Link>
         </div>
       </main>
     );
   }
-
-  const fakeOldPrice = Math.round(product.price * 1.45);
-  const discount = Math.max(
-    10,
-    Math.min(
-      50,
-      Math.round(((fakeOldPrice - product.price) / fakeOldPrice) * 100)
-    )
-  );
-
-  const normalizedImageUrl = product.imageUrl
-    ? product.imageUrl
-        .replace(/\\/g, "/")
-        .replace(/^public\//, "/")
-        .replace(/^public/, "/")
-    : "";
-
-  const canShowImage = !!normalizedImageUrl && !imgError;
 
   return (
     <main className="min-h-screen bg-[#12070b] text-white">
@@ -159,14 +185,14 @@ export default function ProductDetailsPage() {
           <div className="rounded-[28px] border border-white/10 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
             <div className="mb-3 flex flex-wrap gap-2">
               <span className="rounded-full border border-[#f3c46b]/20 bg-[#f3c46b]/10 px-3 py-1 text-xs font-medium text-[#ffd98f]">
-                {product.category}
+                {product.category || "Uncategorized"}
               </span>
 
-              {product.subCategory && (
+              {product.subCategory ? (
                 <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
                   {product.subCategory}
                 </span>
-              )}
+              ) : null}
             </div>
 
             <h1 className="text-3xl font-bold text-white md:text-4xl">
@@ -213,7 +239,7 @@ export default function ProductDetailsPage() {
                     id: product.id,
                     name: product.name,
                     price: product.price,
-                    category: product.category,
+                    category: product.category || "Uncategorized",
                     imageUrl: normalizedImageUrl || "",
                   })
                 }
@@ -230,7 +256,7 @@ export default function ProductDetailsPage() {
                 View Cart
               </Link>
 
-              {normalizedImageUrl && (
+              {normalizedImageUrl ? (
                 <a
                   href={normalizedImageUrl}
                   target="_blank"
@@ -239,7 +265,7 @@ export default function ProductDetailsPage() {
                 >
                   View Image
                 </a>
-              )}
+              ) : null}
             </div>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">

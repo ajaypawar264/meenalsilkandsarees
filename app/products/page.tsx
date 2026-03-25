@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Header from "../components/Header";
 import { addToCart } from "@/lib/cart";
@@ -17,16 +17,17 @@ type Product = {
   name: string;
   price: number;
   stock?: number;
-  category: string;
-  inStock: boolean;
+  category?: string;
+  inStock?: boolean;
   imageUrl?: string;
 };
 
-export default function ProductsPage() {
+function ProductsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [minPrice, setMinPrice] = useState("0");
   const [maxPrice, setMaxPrice] = useState("50000");
@@ -36,23 +37,43 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState<"all" | "inStock" | "outOfStock">("all");
 
   useEffect(() => {
-    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const items: Product[] = snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...(docItem.data() as Omit<Product, "id">),
-        }));
+        const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+
+        const items: Product[] = snapshot.docs.map((docItem) => {
+          const data = docItem.data() as Partial<Product>;
+
+          const stockValue = Number(data.stock ?? 0);
+          const priceValue = Number(data.price ?? 0);
+
+          return {
+            id: docItem.id,
+            name: data.name || "Unnamed Product",
+            price: Number.isFinite(priceValue) ? priceValue : 0,
+            stock: Number.isFinite(stockValue) ? stockValue : 0,
+            category: data.category || "Uncategorized",
+            inStock:
+              typeof data.inStock === "boolean"
+                ? data.inStock
+                : (Number.isFinite(stockValue) ? stockValue : 0) > 0,
+            imageUrl: data.imageUrl || "",
+          };
+        });
+
         setProducts(items);
-      },
-      (error) => {
+      } catch (error) {
         console.error("Products fetch error:", error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    fetchProducts();
   }, []);
 
   useEffect(() => {
@@ -63,24 +84,31 @@ export default function ProductsPage() {
   }, [searchParams]);
 
   const categories = useMemo(() => {
-    return Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
+    return Array.from(
+      new Set(products.map((p) => p.category || "Uncategorized").filter(Boolean))
+    );
   }, [products]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+      const productName = (p.name || "").toLowerCase();
+      const productPrice = Number(p.price ?? 0);
+      const productCategory = p.category || "Uncategorized";
+      const productInStock = Boolean(p.inStock);
+
+      const matchesSearch = productName.includes(search.toLowerCase());
 
       const matchesPrice =
-        p.price >= appliedMinPrice && p.price <= appliedMaxPrice;
+        productPrice >= appliedMinPrice && productPrice <= appliedMaxPrice;
 
       const matchesCategory =
         selectedCategories.length === 0 ||
-        selectedCategories.includes(p.category);
+        selectedCategories.includes(productCategory);
 
       const matchesStock =
         stockFilter === "all" ||
-        (stockFilter === "inStock" && p.inStock) ||
-        (stockFilter === "outOfStock" && !p.inStock);
+        (stockFilter === "inStock" && productInStock) ||
+        (stockFilter === "outOfStock" && !productInStock);
 
       return matchesSearch && matchesPrice && matchesCategory && matchesStock;
     });
@@ -126,7 +154,6 @@ export default function ProductsPage() {
 
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="grid gap-8 lg:grid-cols-[290px_1fr]">
-          {/* Sidebar */}
           <aside className="h-fit rounded-[28px] bg-white p-6 shadow-sm">
             <div className="mb-8">
               <h3 className="text-2xl font-bold text-[#233f99]">Price Range</h3>
@@ -192,24 +219,22 @@ export default function ProductsPage() {
                     </label>
                   ))
                 ) : (
-                  <>
-                    {["Dress", "Cotton Saree", "Kathpadar Saree", "Designer Saree"].map(
-                      (cat) => (
-                        <label
-                          key={cat}
-                          className="flex cursor-pointer items-center gap-3 text-[18px] text-slate-700"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedCategories.includes(cat)}
-                            onChange={() => handleCategoryChange(cat)}
-                            className="h-5 w-5 rounded border-slate-300 accent-[#233f99]"
-                          />
-                          <span>{cat}</span>
-                        </label>
-                      )
-                    )}
-                  </>
+                  ["Dress", "Cotton Saree", "Kathpadar Saree", "Designer Saree"].map(
+                    (cat) => (
+                      <label
+                        key={cat}
+                        className="flex cursor-pointer items-center gap-3 text-[18px] text-slate-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(cat)}
+                          onChange={() => handleCategoryChange(cat)}
+                          className="h-5 w-5 rounded border-slate-300 accent-[#233f99]"
+                        />
+                        <span>{cat}</span>
+                      </label>
+                    )
+                  )
                 )}
               </div>
             </div>
@@ -262,7 +287,6 @@ export default function ProductsPage() {
             </button>
           </aside>
 
-          {/* Right Content */}
           <div>
             <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -291,19 +315,26 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            {filteredProducts.length === 0 ? (
+            {loading ? (
+              <div className="rounded-[28px] bg-white p-12 text-center text-lg text-slate-500 shadow-sm">
+                Loading products...
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="rounded-[28px] bg-white p-12 text-center text-lg text-slate-500 shadow-sm">
                 No products found.
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 {filteredProducts.map((p) => {
-                  const fakeOldPrice = Math.round(p.price * 1.25);
+                  const productPrice = Number(p.price ?? 0);
+                  const fakeOldPrice = Math.max(Math.round(productPrice * 1.25), productPrice);
                   const discount = Math.max(
                     10,
                     Math.min(
                       50,
-                      Math.round(((fakeOldPrice - p.price) / fakeOldPrice) * 100)
+                      fakeOldPrice > 0
+                        ? Math.round(((fakeOldPrice - productPrice) / fakeOldPrice) * 100)
+                        : 10
                     )
                   );
 
@@ -316,7 +347,7 @@ export default function ProductsPage() {
                         {p.imageUrl ? (
                           <img
                             src={p.imageUrl}
-                            alt={p.name}
+                            alt={p.name || "Product"}
                             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                           />
                         ) : (
@@ -350,9 +381,9 @@ export default function ProductsPage() {
                               onClick={() =>
                                 addToCart({
                                   id: p.id,
-                                  name: p.name,
-                                  price: p.price,
-                                  category: p.category,
+                                  name: p.name || "Product",
+                                  price: productPrice,
+                                  category: p.category || "Uncategorized",
                                   imageUrl: p.imageUrl || "",
                                 })
                               }
@@ -381,13 +412,13 @@ export default function ProductsPage() {
                             href={`/products/${p.id}`}
                             className="transition hover:text-[#233f99]"
                           >
-                            {p.name}
+                            {p.name || "Unnamed Product"}
                           </Link>
                         </h3>
 
                         <div className="mt-3 flex items-end gap-3">
                           <p className="text-2xl font-bold text-[#233f99]">
-                            ₹{p.price}
+                            ₹{productPrice}
                           </p>
                           <p className="pb-1 text-base text-slate-400 line-through">
                             ₹{fakeOldPrice}
@@ -396,7 +427,7 @@ export default function ProductsPage() {
 
                         <div className="mt-3 flex items-center justify-between gap-2">
                           <span className="rounded-full bg-[#eef2ff] px-3 py-1 text-xs font-medium text-[#233f99]">
-                            {p.category}
+                            {p.category || "Uncategorized"}
                           </span>
 
                           <span
@@ -413,9 +444,9 @@ export default function ProductsPage() {
                           onClick={() =>
                             addToCart({
                               id: p.id,
-                              name: p.name,
-                              price: p.price,
-                              category: p.category,
+                              name: p.name || "Product",
+                              price: productPrice,
+                              category: p.category || "Uncategorized",
                               imageUrl: p.imageUrl || "",
                             })
                           }
@@ -436,3 +467,24 @@ export default function ProductsPage() {
     </main>
   );
 }
+
+
+export default function ProductsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f7f7f9] text-slate-900">
+          <Header />
+          <section className="mx-auto max-w-7xl px-4 py-12 md:px-6">
+            <div className="rounded-[28px] bg-white p-12 text-center text-lg text-slate-500 shadow-sm">
+              Loading products...
+            </div>
+          </section>
+        </main>
+      }
+    >
+      <ProductsContent />
+    </Suspense>
+  );
+}
+
