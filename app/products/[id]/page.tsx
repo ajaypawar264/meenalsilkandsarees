@@ -9,6 +9,14 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { addToCart } from "@/lib/cart";
 import Header from "@/app/components/Header";
+import ProductMediaSlider from "@/app/components/ProductMediaSlider";
+
+type ProductMediaItem = {
+  url: string;
+  type: "image" | "video";
+  fileType?: string;
+  thumbnailUrl?: string;
+};
 
 type Product = {
   id: string;
@@ -19,6 +27,9 @@ type Product = {
   subCategory?: string;
   inStock?: boolean;
   imageUrl?: string;
+  imageUrls?: string[];
+  videoUrls?: string[];
+  mediaFiles?: ProductMediaItem[];
   description?: string;
 };
 
@@ -33,7 +44,6 @@ export default function ProductDetailsPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -62,6 +72,9 @@ export default function ProductDetailsPage() {
           subCategory: data.subCategory || "",
           inStock: Boolean(data.inStock ?? (Number(data.stock ?? 0) > 0)),
           imageUrl: data.imageUrl || "",
+          imageUrls: data.imageUrls || [],
+          videoUrls: data.videoUrls || [],
+          mediaFiles: data.mediaFiles || [],
           description: data.description || "",
         });
       } catch (error) {
@@ -76,15 +89,22 @@ export default function ProductDetailsPage() {
   }, [productId]);
 
   const normalizedImageUrl = useMemo(() => {
-    if (!product?.imageUrl) return "";
+    const firstImageFromMedia =
+      product?.mediaFiles?.find((item) => item.type === "image")?.url || "";
 
-    return product.imageUrl
+    const firstImage =
+      product?.imageUrl ||
+      product?.imageUrls?.[0] ||
+      firstImageFromMedia ||
+      "";
+
+    if (!firstImage) return "";
+
+    return firstImage
       .replace(/\\/g, "/")
       .replace(/^public\//, "/")
       .replace(/^public/, "/");
-  }, [product?.imageUrl]);
-
-  const canShowImage = Boolean(normalizedImageUrl) && !imgError;
+  }, [product]);
 
   const fakeOldPrice = useMemo(() => {
     return Math.max(Math.round((product?.price || 0) * 1.45), product?.price || 0);
@@ -119,10 +139,10 @@ export default function ProductDetailsPage() {
         <div className="mx-auto max-w-7xl px-4 py-20 text-center">
           <h1 className="text-3xl font-bold text-red-400">Product not found</h1>
           <Link
-            href="/products"
+            href="/"
             className="mt-6 inline-block rounded-xl bg-gradient-to-r from-[#b88639] to-[#e2b45b] px-6 py-3 font-semibold text-[#2b1208]"
           >
-            Back to Products
+            Back to Home
           </Link>
         </div>
       </main>
@@ -144,42 +164,13 @@ export default function ProductDetailsPage() {
 
         <div className="grid gap-8 md:grid-cols-2">
           <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/10 shadow-xl">
-            {canShowImage ? (
-              <div className="relative">
-                <img
-                  src={normalizedImageUrl}
-                  alt={product.name}
-                  onError={() => setImgError(true)}
-                  className="h-[520px] w-full object-cover"
-                />
-
-                <div className="absolute bottom-4 right-4">
-                  <a
-                    href={normalizedImageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl bg-black/70 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-black/85"
-                  >
-                    View Image
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <div className="flex h-[520px] flex-col items-center justify-center gap-4 text-white/50">
-                <p className="text-lg font-semibold">Image not available</p>
-
-                {normalizedImageUrl && (
-                  <a
-                    href={normalizedImageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl bg-gradient-to-r from-[#b88639] to-[#e2b45b] px-5 py-3 font-semibold text-[#2b1208]"
-                  >
-                    Open Image
-                  </a>
-                )}
-              </div>
-            )}
+            <ProductMediaSlider
+              productName={product.name}
+              imageUrl={product.imageUrl}
+              imageUrls={product.imageUrls || []}
+              videoUrls={product.videoUrls || []}
+              mediaFiles={product.mediaFiles || []}
+            />
           </div>
 
           <div className="rounded-[28px] border border-white/10 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
@@ -263,16 +254,9 @@ export default function ProductDetailsPage() {
                   rel="noreferrer"
                   className="rounded-2xl border border-white/15 bg-white/5 px-6 py-3 font-semibold text-white transition hover:bg-white/10"
                 >
-                  View Image
+                  View First Image
                 </a>
               ) : null}
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-xs text-white/50">Image URL</p>
-              <p className="mt-1 break-all text-sm text-white/70">
-                {normalizedImageUrl || "No image URL saved"}
-              </p>
             </div>
           </div>
         </div>

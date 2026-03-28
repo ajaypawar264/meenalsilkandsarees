@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { addDoc, collection, getDocs } from "firebase/firestore";
+import { addDoc, collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
     const name = String(body.name || "").trim();
     const mobile = String(body.mobile || "").trim();
     const password = String(body.password || "").trim();
@@ -20,15 +21,47 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!/^\d{10}$/.test(mobile)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Please enter a valid 10-digit mobile number",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Password must be at least 6 characters",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (personalKey.length < 4) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Personal key must be at least 4 characters",
+        },
+        { status: 400 }
+      );
+    }
+
     const usersRef = collection(db, "users");
-    const snapshot = await getDocs(usersRef);
 
-    const alreadyExists = snapshot.docs.some((doc) => {
-      const data = doc.data();
-      return String(data.mobile || "").trim() === mobile;
-    });
+    const existingUserQuery = query(
+      usersRef,
+      where("mobile", "==", mobile),
+      limit(1)
+    );
 
-    if (alreadyExists) {
+    const existingUserSnapshot = await getDocs(existingUserQuery);
+
+    if (!existingUserSnapshot.empty) {
       return NextResponse.json(
         {
           success: false,
@@ -43,7 +76,7 @@ export async function POST(req: Request) {
       mobile,
       password,
       personalKey,
-      createdAt: Date.now(),
+      createdAt: new Date().toISOString(),
     });
 
     return NextResponse.json(

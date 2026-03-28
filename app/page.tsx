@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
+import ProductMediaSlider from "@/app/components/ProductMediaSlider";
 import Reviews from "./components/Reviews";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,17 +12,30 @@ import { db } from "@/lib/firebase";
 import { addToCart } from "@/lib/cart";
 import Header from "./components/Header";
 
+type ProductMediaItem = {
+  url: string;
+  type: "image" | "video";
+  fileType?: string;
+  thumbnailUrl?: string;
+};
+
 type Product = {
   id: string;
-  name?: string;
-  price?: number;
+  name: string;
+  price: number;
   stock?: number;
-  category?: string;
+  category: string;
   subCategory?: string;
-  inStock?: boolean;
+  inStock: boolean;
   imageUrl?: string;
-  imageBase64?: string; // 🔥 ADD THIS
-  createdAt?: any;
+  imageBase64?: string;
+  imageUrls?: string[];
+  videoUrls?: string[];
+  mediaFiles?: ProductMediaItem[];
+  createdAt?: {
+    seconds?: number;
+    nanoseconds?: number;
+  };
 };
 
 type CategorySlide = {
@@ -83,6 +97,7 @@ function getYouTubeId(url: string) {
     return "";
   }
 }
+
 function getInstagramEmbedUrl(url: string) {
   const cleanUrl = url.split("?")[0];
   return cleanUrl.endsWith("/") ? `${cleanUrl}embed` : `${cleanUrl}/embed`;
@@ -307,25 +322,21 @@ export default function Home() {
           <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-[#3b1020]/90 via-[#1f0d16]/90 to-[#12070b]/95 p-8 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl md:p-10">
             <div className="mb-6">
               <div className="mb-6 flex items-center gap-4">
-  
-  {/* LOGO */}
-  <img
-    src="\logo3.png"   // 👉 tuza PNG nav ithe change kar
-    alt="Meenal Silk Logo"
-    className="h-15 w-15 object-contain rounded-xl bg-white/10 p-1"
-  />
+                <img
+                  src="/logo3.png"
+                  alt="Meenal Silk Logo"
+                  className="h-15 w-15 rounded-xl bg-white/10 p-1 object-contain"
+                />
 
-  {/* TEXT */}
-  <div>
-    <p className="text-base font-extrabold uppercase tracking-[0.45em] text-[#f3c46b] md:text-lg">
-      MEENAL SILK
-    </p>
-    <p className="text-sm font-bold tracking-[0.35em] text-[#f3c46b] md:text-base">
-      AND SAREE
-    </p>
-  </div>
-
-</div>
+                <div>
+                  <p className="text-base font-extrabold uppercase tracking-[0.45em] text-[#f3c46b] md:text-lg">
+                    MEENAL SILK
+                  </p>
+                  <p className="text-sm font-bold tracking-[0.35em] text-[#f3c46b] md:text-base">
+                    AND SAREE
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="mb-5 h-[2px] w-28 bg-gradient-to-r from-[#f3c46b] to-transparent" />
@@ -557,134 +568,113 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {featuredProducts.map((p) => {
-              const price = Number(p.price || 0);
-              const fakeOldPrice = Math.round(price * 1.45 || 0);
-              const discount =
-                fakeOldPrice > 0
-                  ? Math.max(
-                      10,
-                      Math.min(
-                        50,
-                        Math.round(((fakeOldPrice - price) / fakeOldPrice) * 100)
-                      )
-                    )
-                  : 10;
+           {featuredProducts.map((p) => {
+  const price = Number(p.price || 0);
+  const fakeOldPrice = Math.round(price * 1.45 || 0);
+  const discount =
+    fakeOldPrice > 0
+      ? Math.max(
+          10,
+          Math.min(
+            50,
+            Math.round(((fakeOldPrice - price) / fakeOldPrice) * 100)
+          )
+        )
+      : 10;
 
-              return (
-                <div
-                  key={p.id}
-                  className="group overflow-hidden rounded-[28px] border border-white/10 bg-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
-                >
-                  <div className="relative h-[320px] w-full overflow-hidden bg-black/20">
-                    {p.imageUrl ? (
-                      <img
-  src={p.imageBase64 || p.imageUrl}
-  alt={p.name}
-  className="h-full w-full object-cover"
-/>
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-white/40">
-                        No Image
-                      </div>
-                    )}
+  const normalizedImageUrl =
+    p.imageUrl ||
+    p.imageBase64 ||
+    p.imageUrls?.[0] ||
+    p.mediaFiles?.find((item) => item.type === "image")?.url ||
+    "";
 
-                    <div className="absolute left-4 top-4 rounded-2xl bg-red-500 px-3 py-1 text-sm font-semibold text-white shadow-lg">
-                      {discount}% OFF
-                    </div>
+  return (
+    <div
+      key={p.id}
+      className="group overflow-hidden rounded-[28px] border border-white/10 bg-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+    >
+      <div className="relative z-0">
+        <ProductMediaSlider
+          productName={p.name}
+          imageUrl={p.imageUrl}
+          imageUrls={p.imageUrls || []}
+          videoUrls={p.videoUrls || []}
+          mediaFiles={p.mediaFiles || []}
+        />
+      </div>
 
-                    {!p.inStock && (
-                      <div className="absolute left-4 top-16 rounded-xl bg-slate-700 px-3 py-1 text-sm font-semibold text-white">
-                        Sold Out
-                      </div>
-                    )}
+      <div className="relative z-10 p-5">
+        <h4 className="min-h-[64px] text-[20px] font-semibold leading-snug text-white">
+          {p.name || "Untitled Product"}
+        </h4>
 
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition duration-300 group-hover:opacity-100">
-                      <div className="flex flex-wrap items-center justify-center gap-3 px-4">
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/products/${p.id}`)}
-                          className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-800 shadow-md transition hover:scale-105 hover:text-green-600"
-                        >
-                          View
-                        </button>
+        <div className="mt-3 flex items-end gap-3">
+          <p className="text-2xl font-bold text-[#ffd27a]">
+            ₹{price}
+          </p>
+          <p className="pb-1 text-base text-white/35 line-through">
+            ₹{fakeOldPrice}
+          </p>
+        </div>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            addToCart({
-                              id: p.id,
-                              name: p.name || "Product",
-                              price: price,
-                              category: p.category || "",
-                              imageUrl: p.imageUrl || "",
-                            })
-                          }
-                          disabled={!p.inStock}
-                          className="rounded-full bg-[#f3c46b] px-5 py-2 text-sm font-semibold text-[#2b1208] shadow-md transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Add to Cart
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+        <div className="mt-2">
+          <span className="inline-flex rounded-full bg-red-500/20 px-3 py-1 text-xs font-semibold text-red-300">
+            {discount}% OFF
+          </span>
+        </div>
 
-                  <div className="p-5">
-                    <h4 className="min-h-[64px] text-[20px] font-semibold leading-snug text-white">
-                      {p.name || "Untitled Product"}
-                    </h4>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-[#f3c46b]/20 bg-[#f3c46b]/10 px-3 py-1 text-xs font-medium text-[#ffd98f]">
+            {p.category || "General"}
+          </span>
 
-                    <div className="mt-3 flex items-end gap-3">
-                      <p className="text-2xl font-bold text-[#ffd27a]">
-                        ₹{price}
-                      </p>
-                      <p className="pb-1 text-base text-white/35 line-through">
-                        ₹{fakeOldPrice}
-                      </p>
-                    </div>
+          {p.subCategory && (
+            <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
+              {p.subCategory}
+            </span>
+          )}
+        </div>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-[#f3c46b]/20 bg-[#f3c46b]/10 px-3 py-1 text-xs font-medium text-[#ffd98f]">
-                        {p.category || "General"}
-                      </span>
+        <div className="mt-3 flex items-center justify-between">
+          <span
+            className={`text-sm font-medium ${
+              p.inStock ? "text-green-400" : "text-red-400"
+            }`}
+          >
+            {p.inStock ? `Stock: ${p.stock ?? 0}` : "Out of stock"}
+          </span>
+        </div>
 
-                      {p.subCategory && (
-                        <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
-                          {p.subCategory}
-                        </span>
-                      )}
-                    </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <Link
+            href={`/products/${p.id}`}
+            className="rounded-full bg-white/90 px-5 py-3 text-center text-sm font-semibold text-[#1a1a1a] backdrop-blur-md transition hover:bg-white"
+          >
+            View
+          </Link>
 
-                    <div className="mt-3 flex items-center justify-between">
-                      <span
-                        className={`text-sm font-medium ${
-                          p.inStock ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        {p.inStock ? `Stock: ${p.stock ?? 0}` : "Out of stock"}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        addToCart({
-                          id: p.id,
-                          name: p.name || "Product",
-                          price: price,
-                          category: p.category || "",
-                          imageUrl: p.imageUrl || "",
-                        })
-                      }
-                      disabled={!p.inStock}
-                      className="mt-5 w-full rounded-2xl bg-gradient-to-r from-[#b88639] to-[#e2b45b] py-3 font-semibold text-[#2b1208] transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-white/70"
-                    >
-                      {p.inStock ? "Add to Cart" : "Sold Out"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+          <button
+            type="button"
+            onClick={() =>
+              addToCart({
+                id: p.id,
+                name: p.name || "Products",
+                price: price,
+                category: p.category || "",
+                imageUrl: normalizedImageUrl || "",
+              })
+            }
+            disabled={!p.inStock}
+            className="rounded-full bg-gradient-to-r from-[#d4a848] to-[#f2c76b] px-5 py-3 text-sm font-semibold text-[#2b1208] transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-white/70"
+          >
+            {p.inStock ? "Add to Cart" : "Sold Out"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+})}
           </div>
         )}
       </section>

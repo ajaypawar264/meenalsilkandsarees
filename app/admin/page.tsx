@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminLogout } from "@/lib/adminAuth";
+import {
+  uploadFileToImageKit,
+  type UploadedMediaItem,
+} from "@/lib/imagekitUpload";
 import {
   addDoc,
   collection,
@@ -218,6 +222,8 @@ function PieChartCard({
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [productForm, setProductForm] = useState<ProductForm>({
@@ -235,7 +241,8 @@ export default function AdminDashboardPage() {
 
   const [addingProduct, setAddingProduct] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [imagePreview, setImagePreview] = useState("");
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedMediaItem[]>([]);
+  const [mediaPreview, setMediaPreview] = useState<UploadedMediaItem[]>([]);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
@@ -312,53 +319,78 @@ export default function AdminDashboardPage() {
     }));
   };
 
-  const handleImageUpload = (
+  const openImagePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageSelection = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
+    const files = Array.from(e.target.files || []);
+
+    if (!files.length) return;
+
     try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (!file.type.startsWith("image/")) {
-        alert("Fakt image file select kar");
-        return;
-      }
-
       setUploadingImage(true);
 
-      const reader = new FileReader();
+      const newlyUploadedItems: UploadedMediaItem[] = [];
 
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
+      for (const file of files) {
+        const uploaded = await uploadFileToImageKit(file);
+        newlyUploadedItems.push(uploaded);
+      }
 
-        setImagePreview(base64);
-        setProductForm((prev) => ({
-          ...prev,
-          imageUrl: base64,
+      setUploadedMedia((prev) => {
+        const updated = [...prev, ...newlyUploadedItems];
+
+        const firstImage = updated.find((item) => item.type === "image");
+
+        setProductForm((current) => ({
+          ...current,
+          imageUrl: firstImage?.url || updated[0]?.url || "",
         }));
-        setUploadingImage(false);
-      };
 
-      reader.onerror = () => {
-        alert("Image upload zala nahi");
-        setImagePreview("");
-        setProductForm((prev) => ({
-          ...prev,
-          imageUrl: "",
-        }));
-        setUploadingImage(false);
-      };
+        return updated;
+      });
 
-      reader.readAsDataURL(file);
+      setMediaPreview((prev) => [...prev, ...newlyUploadedItems]);
     } catch (error) {
-      console.error("Image upload error:", error);
-      alert("Image upload zala nahi");
-      setImagePreview("");
-      setProductForm((prev) => ({
-        ...prev,
-        imageUrl: "",
-      }));
+      console.error("ImageKit upload error:", error);
+      alert("Photo/video upload zala nahi.");
+    } finally {
       setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeMediaItem = (indexToRemove: number) => {
+    setUploadedMedia((prev) => {
+      const updated = prev.filter((_, index) => index !== indexToRemove);
+      const firstImage = updated.find((item) => item.type === "image");
+
+      setProductForm((current) => ({
+        ...current,
+        imageUrl: firstImage?.url || updated[0]?.url || "",
+      }));
+
+      return updated;
+    });
+
+    setMediaPreview((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const clearAllMedia = () => {
+    setUploadedMedia([]);
+    setMediaPreview([]);
+    setProductForm((prev) => ({
+      ...prev,
+      imageUrl: "",
+    }));
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -485,8 +517,8 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    if (!productForm.imageUrl) {
-      alert("Photo upload kara.");
+    if (!productForm.imageUrl || uploadedMedia.length === 0) {
+      alert("Photo kiwa video upload kara.");
       return;
     }
 
@@ -501,6 +533,13 @@ export default function AdminDashboardPage() {
         subCategory: finalSubCategory,
         color: productForm.color.trim(),
         imageUrl: productForm.imageUrl,
+        mediaFiles: uploadedMedia,
+        imageUrls: uploadedMedia
+          .filter((item) => item.type === "image")
+          .map((item) => item.url),
+        videoUrls: uploadedMedia
+          .filter((item) => item.type === "video")
+          .map((item) => item.url),
         inStock: productForm.inStock,
         createdAt: serverTimestamp(),
       });
@@ -519,7 +558,8 @@ export default function AdminDashboardPage() {
         imageUrl: "",
         inStock: true,
       });
-      setImagePreview("");
+      setUploadedMedia([]);
+      setMediaPreview([]);
     } catch (error) {
       console.error("Add product error:", error);
       alert("Product add karta ala nahi.");
@@ -809,28 +849,93 @@ export default function AdminDashboardPage() {
 
               <div>
                 <label className="mb-2 block text-sm text-white/80">
-                  Upload Photo
+                  Upload Photos / Videos
                 </label>
 
                 <input
+                  ref={fileInputRef}
                   type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white file:mr-3 file:rounded-xl file:border-0 file:bg-yellow-400 file:px-4 file:py-2 file:font-semibold file:text-black"
+                  accept="image/*,video/*"
+                  multiple
+                  onChange={handleImageSelection}
+                  className="hidden"
                 />
 
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={openImagePicker}
+                    className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white transition hover:border-yellow-400"
+                  >
+                    {mediaPreview.length > 0
+                      ? "Upload More Photos / Videos"
+                      : "Choose Photos / Videos"}
+                  </button>
+
+                  {mediaPreview.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={clearAllMedia}
+                      className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200 transition hover:bg-red-500/20"
+                    >
+                      Clear All
+                    </button>
+                  ) : null}
+                </div>
+
                 {uploadingImage ? (
-                  <p className="mt-3 text-sm text-yellow-300">Photo uploading...</p>
+                  <p className="mt-3 text-sm text-yellow-300">
+                    Photo/video uploading...
+                  </p>
                 ) : null}
 
-                {imagePreview ? (
+                {mediaPreview.length > 0 ? (
                   <div className="mt-4">
-                    <p className="mb-2 text-xs text-white/60">Preview</p>
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="h-28 w-28 rounded-2xl border border-white/10 object-cover"
-                    />
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-xs text-white/60">
+                        Preview ({mediaPreview.length})
+                      </p>
+                      <p className="text-xs text-white/40">
+                        First image website cover mhanun save hoil
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {mediaPreview.map((item, index) => (
+                        <div
+                          key={`${item.url}-${index}`}
+                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20"
+                        >
+                          {item.type === "video" ? (
+                            <video
+                              src={item.url}
+                              controls
+                              className="h-28 w-full object-cover"
+                            />
+                          ) : (
+                            <img
+                              src={item.url}
+                              alt={`Preview ${index + 1}`}
+                              className="h-28 w-full object-cover"
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => removeMediaItem(index)}
+                            className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs text-white"
+                          >
+                            ✕
+                          </button>
+
+                          <div className="px-2 py-2 text-[11px] text-white/70">
+                            {item.type === "video"
+                              ? `Video ${index + 1}`
+                              : `Photo ${index + 1}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
