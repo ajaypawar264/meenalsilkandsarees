@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-
+import { getStorage } from "firebase/storage";
 const firebaseConfig = {
   apiKey: "AIzaSyAX22tamSoAJPIIoSDqKTS4H5FZh3SG3Xc",
   authDomain: "minal-silk-and-saree.firebaseapp.com",
@@ -14,3 +14,5 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export default app;
+
+export const storage = getStorage(app);
