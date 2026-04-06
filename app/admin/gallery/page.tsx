@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   addDoc,
@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { uploadFileToImageKit } from "@/lib/imagekitUpload";
 
 type GalleryItem = {
   id: string;
@@ -25,8 +26,11 @@ export default function AdminGalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"image" | "video">("image");
-  const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchGallery = async () => {
     try {
@@ -49,11 +53,34 @@ export default function AdminGalleryPage() {
     fetchGallery();
   }, []);
 
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 🔥 IMAGEKIT UPLOAD
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+
+      const res = await uploadFileToImageKit(file);
+
+      setPreviewUrl(res.url);
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!url.trim()) {
-      alert("URL tak");
+    if (!previewUrl) {
+      alert("Image/Video upload kar");
       return;
     }
 
@@ -63,15 +90,14 @@ export default function AdminGalleryPage() {
       await addDoc(collection(db, "gallery"), {
         title: title.trim(),
         type,
-        url: url.trim(),
+        url: previewUrl,
         createdAt: serverTimestamp(),
       });
 
       setTitle("");
-      setType("image");
-      setUrl("");
+      setPreviewUrl("");
       fetchGallery();
-      alert("Gallery item add jhala");
+      alert("Gallery item add jhala ✅");
     } catch (error) {
       console.error(error);
       alert("Gallery item add zala nahi");
@@ -91,124 +117,116 @@ export default function AdminGalleryPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-black via-[#12090f] to-[#1a0d10] px-6 py-10 text-white">
+    <main className="min-h-screen bg-black text-white px-6 py-10">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-[0.25em] text-yellow-400">
-              Admin
-            </p>
-            <h1 className="text-3xl font-bold">Gallery Management</h1>
-          </div>
+        <div className="mb-8 flex justify-between">
+          <h1 className="text-3xl font-bold text-yellow-400">
+            Gallery Management
+          </h1>
 
           <div className="flex gap-3">
-            <Link
-              href="/admin/orders"
-              className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-cyan-300"
-            >
+            <Link href="/admin/orders" className="text-cyan-400">
               Orders
             </Link>
-            <Link
-              href="/admin/products"
-              className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-2 text-yellow-300"
-            >
+            <Link href="/admin/products" className="text-yellow-400">
               Stock
             </Link>
           </div>
         </div>
 
         <div className="grid gap-8 xl:grid-cols-3">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl xl:col-span-1">
-            <h2 className="text-2xl font-bold text-yellow-400">Add Gallery Item</h2>
+          {/* FORM */}
+          <div className="rounded-2xl bg-white/5 p-6 border border-white/10">
+            <h2 className="text-xl font-bold mb-4">Add Gallery</h2>
 
-            <form onSubmit={handleAdd} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-2 block">Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-white/20 bg-black px-4 py-3 text-white"
-                  placeholder="Bridal Video"
-                />
-              </div>
+            <form onSubmit={handleAdd} className="space-y-4">
+              <input
+                type="text"
+                placeholder="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full p-3 rounded bg-black border border-white/20"
+              />
 
-              <div>
-                <label className="mb-2 block">Type</label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as "image" | "video")}
-                  className="w-full rounded-xl border border-white/20 bg-black px-4 py-3 text-white"
-                >
-                  <option value="image">Image</option>
-                  <option value="video">Video</option>
-                </select>
-              </div>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as "image" | "video")}
+                className="w-full p-3 rounded bg-black border border-white/20"
+              >
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+              </select>
 
-              <div>
-                <label className="mb-2 block">URL</label>
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="w-full rounded-xl border border-white/20 bg-black px-4 py-3 text-white"
-                  placeholder="https://..."
-                />
-              </div>
+              {/* FILE UPLOAD */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                hidden
+                onChange={handleFileChange}
+              />
+
+              <button
+                type="button"
+                onClick={openFilePicker}
+                className="w-full p-3 bg-white/10 rounded"
+              >
+                Upload File
+              </button>
+
+              {uploading && <p>Uploading...</p>}
+
+              {/* PREVIEW */}
+              {previewUrl && (
+                <div className="mt-3">
+                  {type === "image" ? (
+                    <img
+                      src={previewUrl}
+                      className="w-full h-40 object-cover rounded"
+                    />
+                  ) : (
+                    <video src={previewUrl} controls className="w-full rounded" />
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-xl bg-yellow-500 py-3 font-semibold text-black hover:bg-yellow-400 disabled:opacity-60"
+                className="w-full bg-yellow-500 text-black p-3 rounded font-bold"
               >
                 {loading ? "Adding..." : "Add Item"}
               </button>
             </form>
           </div>
 
-          <div className="xl:col-span-2">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl"
-                >
-                  {item.type === "image" ? (
-                    <img
-                      src={item.url}
-                      alt={item.title || "Gallery image"}
-                      className="h-[320px] w-full object-cover"
-                    />
-                  ) : (
-                    <video
-                      src={item.url}
-                      controls
-                      className="h-[320px] w-full object-cover"
-                    />
-                  )}
+          {/* LIST */}
+          <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl overflow-hidden border border-white/10 bg-white/5"
+              >
+                {item.type === "image" ? (
+                  <img
+                    src={item.url}
+                    className="h-60 w-full object-cover"
+                  />
+                ) : (
+                  <video src={item.url} controls className="h-60 w-full" />
+                )}
 
-                  <div className="p-4">
-                    <p className="font-semibold text-white">
-                      {item.title || "Untitled"}
-                    </p>
-                    <p className="mt-1 text-sm text-white/60">{item.type}</p>
+                <div className="p-4">
+                  <p className="font-semibold">{item.title || "Untitled"}</p>
 
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="mt-4 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-400"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="mt-3 bg-red-500 px-4 py-2 rounded"
+                  >
+                    Delete
+                  </button>
                 </div>
-              ))}
-            </div>
-
-            {items.length === 0 && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
-                No gallery items found
               </div>
-            )}
+            ))}
           </div>
         </div>
       </div>

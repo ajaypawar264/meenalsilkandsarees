@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 type ProductMediaItem = {
   url: string;
   type: "image" | "video";
-  fileType?: string;
-  thumbnailUrl?: string;
 };
 
 type Props = {
@@ -19,12 +17,7 @@ type Props = {
 
 function normalizeUrl(url?: string) {
   if (!url) return "";
-
-  return url
-    .replace(/\\/g, "/")
-    .replace(/^public\//, "/")
-    .replace(/^public/, "/")
-    .trim();
+  return url.replace(/\\/g, "/").trim();
 }
 
 export default function ProductMediaSlider({
@@ -35,130 +28,131 @@ export default function ProductMediaSlider({
   mediaFiles = [],
 }: Props) {
   const finalMedia = useMemo(() => {
-    const normalizedMediaFiles = mediaFiles
-      .map((item) => ({
-        ...item,
-        url: normalizeUrl(item.url),
-      }))
-      .filter((item) => item.url);
+    if (mediaFiles?.length > 0) return mediaFiles;
 
-    if (normalizedMediaFiles.length > 0) return normalizedMediaFiles;
+    const images = imageUrls.map((url) => ({
+      url: normalizeUrl(url),
+      type: "image" as const,
+    }));
 
-    const images = imageUrls
-      .map((url) => normalizeUrl(url))
-      .filter(Boolean)
-      .map((url) => ({
-        url,
-        type: "image" as const,
-      }));
+    const videos = videoUrls.map((url) => ({
+      url: normalizeUrl(url),
+      type: "video" as const,
+    }));
 
-    const videos = videoUrls
-      .map((url) => normalizeUrl(url))
-      .filter(Boolean)
-      .map((url) => ({
-        url,
-        type: "video" as const,
-      }));
-
-    const singleImage = normalizeUrl(imageUrl);
-
-    if (images.length === 0 && videos.length === 0 && singleImage) {
-      return [{ url: singleImage, type: "image" as const }];
+    if (images.length === 0 && videos.length === 0 && imageUrl) {
+      return [{ url: normalizeUrl(imageUrl), type: "image" as const }];
     }
 
     return [...images, ...videos];
   }, [mediaFiles, imageUrls, videoUrls, imageUrl]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [failedUrls, setFailedUrls] = useState<string[]>([]);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
   useEffect(() => {
     setCurrentIndex(0);
-    setFailedUrls([]);
   }, [finalMedia.length]);
 
-  const visibleMedia = useMemo(() => {
-    return finalMedia.filter((item) => !failedUrls.includes(item.url));
-  }, [finalMedia, failedUrls]);
-
+  // ✅ Auto slide
   useEffect(() => {
-    if (currentIndex > visibleMedia.length - 1) {
-      setCurrentIndex(0);
-    }
-  }, [currentIndex, visibleMedia.length]);
+    if (finalMedia.length <= 1) return;
 
-  if (visibleMedia.length === 0) {
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % finalMedia.length);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [finalMedia]);
+
+  const goPrev = () => {
+    setCurrentIndex((prev) =>
+      prev === 0 ? finalMedia.length - 1 : prev - 1
+    );
+  };
+
+  const goNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % finalMedia.length);
+  };
+
+  // ✅ Swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.changedTouches[0].screenX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    touchEndX.current = e.changedTouches[0].screenX;
+
+    if (touchStartX.current - touchEndX.current > 50) goNext();
+    if (touchEndX.current - touchStartX.current > 50) goPrev();
+  };
+
+  if (finalMedia.length === 0) {
     return (
-      <div className="flex h-[320px] w-full items-center justify-center bg-black/20 text-white/50">
+      <div className="flex h-full items-center justify-center text-gray-400">
         No Media
       </div>
     );
   }
 
-  const activeItem = visibleMedia[currentIndex];
-
-  const goPrev = () => {
-    setCurrentIndex((prev) =>
-      prev === 0 ? visibleMedia.length - 1 : prev - 1
-    );
-  };
-
-  const goNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % visibleMedia.length);
-  };
+  const activeItem = finalMedia[currentIndex];
 
   return (
-    <div className="relative h-[620px] w-full overflow-hidden bg-black/20">
+    <div
+      className="relative h-full w-full overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* ✅ MEDIA */}
       {activeItem.type === "video" ? (
         <video
           src={activeItem.url}
+          autoPlay
+          muted
+          loop
           controls
-          className="h-full w-full object-contain"
+          className="h-full w-full object-cover"
         />
       ) : (
         <img
           src={activeItem.url}
           alt={productName}
-          className="h-full w-full object-contain"
-          onError={() => {
-            setFailedUrls((prev) =>
-              prev.includes(activeItem.url) ? prev : [...prev, activeItem.url]
-            );
-          }}
+          className="h-full w-full object-cover"
         />
       )}
 
-      {visibleMedia.length > 1 && (
+      {/* ✅ ARROWS */}
+      {finalMedia.length > 1 && (
         <>
           <button
-            type="button"
             onClick={goPrev}
-            className="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white"
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white px-3 py-1 rounded-full"
           >
             ‹
           </button>
 
           <button
-            type="button"
             onClick={goNext}
-            className="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white"
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white px-3 py-1 rounded-full"
           >
             ›
           </button>
-
-          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-black/40 px-3 py-2">
-            {visibleMedia.map((_, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setCurrentIndex(index)}
-                className={`h-2.5 w-2.5 rounded-full ${
-                  currentIndex === index ? "bg-white" : "bg-white/40"
-                }`}
-              />
-            ))}
-          </div>
         </>
+      )}
+
+      {/* ✅ DOTS */}
+      {finalMedia.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
+          {finalMedia.map((_, i) => (
+            <div
+              key={i}
+              className={`h-2 w-2 rounded-full ${
+                currentIndex === i ? "bg-white" : "bg-white/40"
+              }`}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

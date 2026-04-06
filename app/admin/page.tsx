@@ -52,6 +52,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   Cancelled: "#ef4444",
 };
 
+
 const DEFAULT_CATEGORIES = [
   "Saree",
   "Silk Saree",
@@ -663,7 +664,16 @@ export default function AdminDashboardPage() {
               Images ani videos add/edit kara.
             </p>
           </Link>
-
+<Link href="/admin/add-products" 
+className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white hover:bg-white/15">
+  <p className="text-sm uppercase tracking-[0.2em] text-purple-300">
+               Add Product
+            </p>
+             <h2 className="mt-2 text-2xl font-bold text-white">
+               Product Management
+            </h2>
+  
+</Link>
           <Link
             href="/admin/reviews"
             className="rounded-3xl border border-pink-500/20 bg-pink-500/10 p-6 shadow-lg transition hover:-translate-y-1 hover:bg-pink-500/20"
@@ -711,269 +721,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <section className="mt-10 grid grid-cols-1 gap-8 xl:grid-cols-[1.05fr_1.4fr]">
-          <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-6 shadow-2xl">
-            <div className="mb-5">
-              <p className="text-sm uppercase tracking-[0.2em] text-yellow-300">
-                Quick Add
-              </p>
-              <h2 className="mt-2 text-2xl font-bold text-white">
-                Product Add Form
-              </h2>
-              <p className="mt-2 text-sm text-white/60">
-                Hya page वरून direct product add kara.
-              </p>
-            </div>
-
-            <form onSubmit={handleAddProduct} className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="mb-2 block text-sm text-white/80">
-                  Product Name
-                </label>
-                <input
-                  type="text"
-                  value={productForm.name}
-                  onChange={(e) => handleProductChange("name", e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
-                  placeholder="Enter product name"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm text-white/80">Price</label>
-                  <input
-                    type="number"
-                    value={productForm.price}
-                    onChange={(e) => handleProductChange("price", e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
-                    placeholder="Enter price"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm text-white/80">Stock</label>
-                  <input
-                    type="number"
-                    value={productForm.stock}
-                    onChange={(e) => handleProductChange("stock", e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
-                    placeholder="Enter stock"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-white/80">Color</label>
-                <input
-                  type="text"
-                  value={productForm.color}
-                  onChange={(e) => handleProductChange("color", e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
-                  placeholder="Ex. Red, Pink, Blue"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-white/80">Category</label>
-                <select
-                  value={productForm.category}
-                  onChange={(e) => {
-                    handleProductChange("category", e.target.value);
-                    handleProductChange("subCategory", "");
-                    handleProductChange("newCategory", "");
-                    handleProductChange("newSubCategory", "");
-                  }}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-yellow-400"
-                >
-                  <option value="">Select Category</option>
-                  {DEFAULT_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {productForm.category === "Other" && (
-                <div>
-                  <label className="mb-2 block text-sm text-white/80">
-                    New Category
-                  </label>
-                  <input
-                    type="text"
-                    value={productForm.newCategory}
-                    onChange={(e) => handleProductChange("newCategory", e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
-                    placeholder="Enter new category"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="mb-2 block text-sm text-white/80">
-                  Sub Category
-                </label>
-                <select
-                  value={productForm.subCategory}
-                  onChange={(e) => {
-                    handleProductChange("subCategory", e.target.value);
-                    handleProductChange("newSubCategory", "");
-                  }}
-                  className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-yellow-400"
-                >
-                  <option value="">Select Sub Category</option>
-                  {subCategoryOptions.map((subCategory) => (
-                    <option key={subCategory} value={subCategory}>
-                      {subCategory}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {productForm.subCategory === "Other" && (
-                <div>
-                  <label className="mb-2 block text-sm text-white/80">
-                    New Sub Category
-                  </label>
-                  <input
-                    type="text"
-                    value={productForm.newSubCategory}
-                    onChange={(e) =>
-                      handleProductChange("newSubCategory", e.target.value)
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-yellow-400"
-                    placeholder="Enter new sub category"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="mb-2 block text-sm text-white/80">
-                  Upload Photos / Videos
-                </label>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  onChange={handleImageSelection}
-                  className="hidden"
-                />
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={openImagePicker}
-                    className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white transition hover:border-yellow-400"
-                  >
-                    {mediaPreview.length > 0
-                      ? "Upload More Photos / Videos"
-                      : "Choose Photos / Videos"}
-                  </button>
-
-                  {mediaPreview.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={clearAllMedia}
-                      className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200 transition hover:bg-red-500/20"
-                    >
-                      Clear All
-                    </button>
-                  ) : null}
-                </div>
-
-                {uploadingImage ? (
-                  <p className="mt-3 text-sm text-yellow-300">
-                    Photo/video uploading...
-                  </p>
-                ) : null}
-
-                {mediaPreview.length > 0 ? (
-                  <div className="mt-4">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs text-white/60">
-                        Preview ({mediaPreview.length})
-                      </p>
-                      <p className="text-xs text-white/40">
-                        First image website cover mhanun save hoil
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {mediaPreview.map((item, index) => (
-                        <div
-                          key={`${item.url}-${index}`}
-                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20"
-                        >
-                          {item.type === "video" ? (
-                            <video
-                              src={item.url}
-                              controls
-                              className="h-28 w-full object-cover"
-                            />
-                          ) : (
-                            <img
-                              src={item.url}
-                              alt={`Preview ${index + 1}`}
-                              className="h-28 w-full object-cover"
-                            />
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => removeMediaItem(index)}
-                            className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs text-white"
-                          >
-                            ✕
-                          </button>
-
-                          <div className="px-2 py-2 text-[11px] text-white/70">
-                            {item.type === "video"
-                              ? `Video ${index + 1}`
-                              : `Photo ${index + 1}`}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                <div>
-                  <p className="font-medium text-white">In Stock</p>
-                  <p className="text-xs text-white/50">
-                    Product available ahe ka nahi
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleProductChange("inStock", !productForm.inStock)
-                  }
-                  className={`relative h-8 w-16 rounded-full transition ${
-                    productForm.inStock ? "bg-green-500" : "bg-white/20"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
-                      productForm.inStock ? "left-9" : "left-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={addingProduct || uploadingImage}
-                className="mt-2 rounded-2xl bg-yellow-400 px-4 py-3 font-bold text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {addingProduct ? "Adding Product..." : "Add Product"}
-              </button>
-            </form>
-          </div>
+          
 
           <div className="rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-6 shadow-2xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

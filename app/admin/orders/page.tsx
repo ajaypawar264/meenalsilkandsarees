@@ -47,7 +47,7 @@ type Order = {
 const SHOP_DETAILS = {
   name: "Minal Silk And Saree",
   address: "Pune, Maharashtra, India",
-  phone: "+91 00000 00000",
+  phone: "+91 9518355820",
   gstin: "27ABCDE1234F1Z5",
   state: "Maharashtra",
   stateCode: "27",
@@ -217,40 +217,88 @@ export default function AdminOrdersPage() {
     }
   };
 
-  const handlePrintBill = (order: Order) => {
-    setBillOrder(order);
+ const handlePrintBill = (order: Order) => {
+  const printWindow = window.open("", "_blank");
 
-    setTimeout(() => {
-      window.print();
-    }, 500);
-  };
+  if (!printWindow) return;
+
+  const { taxableAmount, cgst, sgst, grandTotal } = getBillData(order);
+
+  const itemsHtml = (order.items || [])
+    .map(
+      (item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${item.name}</td>
+        <td>₹${Number(item.price || 0).toFixed(2)}</td>
+        <td>${getQty(item)}</td>
+        <td>₹${(Number(item.price || 0) * getQty(item)).toFixed(2)}</td>
+      </tr>
+    `
+    )
+    .join("");
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Invoice</title>
+        <style>
+          body { font-family: Arial; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid black; padding: 8px; text-align: left; }
+          h2, h3 { margin: 0; }
+        </style>
+      </head>
+      <body>
+        <h2>${SHOP_DETAILS.name}</h2>
+        <p>${SHOP_DETAILS.address}</p>
+        <p>Phone: ${SHOP_DETAILS.phone}</p>
+        <p>GSTIN: ${SHOP_DETAILS.gstin}</p>
+
+        <hr />
+
+        <h3>Invoice</h3>
+        <p><strong>Order ID:</strong> ${order.orderNumber || order.id}</p>
+        <p><strong>Name:</strong> ${order.customerName}</p>
+        <p><strong>Phone:</strong> ${order.phone}</p>
+        <p><strong>Address:</strong> ${order.address}</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Item</th>
+              <th>Price</th>
+              <th>Qty</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <h3>Total: ₹${grandTotal.toFixed(2)}</h3>
+        <p>CGST: ₹${cgst.toFixed(2)}</p>
+        <p>SGST: ₹${sgst.toFixed(2)}</p>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            window.close();
+          }
+        </script>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+};
 
   return (
     <main className="min-h-screen bg-[#fff8f3] p-4 text-[#3b1f1f] md:p-8">
       <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-
-          #print-bill-area,
-          #print-bill-area * {
-            visibility: visible !important;
-          }
-
-          #print-bill-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            background: white;
-            padding: 20px;
-          }
-
-          .no-print {
-            display: none !important;
-          }
-        }
+     
       `}</style>
 
       <div className="mx-auto max-w-7xl">
@@ -424,7 +472,37 @@ export default function AdminOrdersPage() {
                             </button>
 
                             <button
-                              onClick={() => handlePrintBill(order)}
+                           onClick={() => {
+  setBillOrder(order);
+  setTimeout(() => {
+    const printContent = document.getElementById("print-bill-area");
+    const win = window.open("", "", "width=900,height=700");
+
+    if (!win || !printContent) return;
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>Print Bill</title>
+          <style>
+            body { font-family: Arial; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid black; padding: 8px; }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+        </body>
+      </html>
+    `);
+
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+  }, 500);
+}}
+
                               className="rounded-lg bg-green-600 px-3 py-2 text-sm text-white hover:opacity-90"
                             >
                               Print Bill
@@ -567,12 +645,40 @@ export default function AdminOrdersPage() {
                 <h2 className="text-2xl font-bold text-[#7a2848]">GST Bill View</h2>
 
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => handlePrintBill(billOrder)}
-                    className="rounded-lg bg-green-600 px-4 py-2 text-white hover:opacity-90"
-                  >
-                    Print Bill
-                  </button>
+             <button
+  onClick={() => {
+    setTimeout(() => {
+      const printContent = document.getElementById("print-bill-area");
+      const win = window.open("", "", "width=900,height=700");
+
+      if (!win || !printContent) return;
+
+      win.document.write(`
+        <html>
+          <head>
+            <title>Print Bill</title>
+            <style>
+              body { font-family: Arial; padding: 20px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { border: 1px solid black; padding: 8px; }
+            </style>
+          </head>
+          <body>
+            ${printContent.innerHTML}
+          </body>
+        </html>
+      `);
+
+      win.document.close();
+      win.focus();
+      win.print();
+      win.close();
+    }, 500);
+  }}
+  className="rounded-lg bg-green-600 px-4 py-2 text-white hover:opacity-90"
+>
+  Print Bill
+</button>
                   <button
                     onClick={() => setBillOrder(null)}
                     className="rounded-lg bg-gray-700 px-4 py-2 text-white hover:opacity-90"

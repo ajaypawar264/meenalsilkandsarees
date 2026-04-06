@@ -1,7 +1,7 @@
 "use client";
 
 export const dynamic = "force-dynamic";
-
+import ProductMediaSlider from "@/app/components/ProductMediaSlider";
 
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -20,6 +20,9 @@ type Product = {
   category?: string;
   inStock?: boolean;
   imageUrl?: string;
+   imageUrls?: string[];
+  videoUrls?: string[];
+  mediaFiles?: any[];
 };
 
 function ProductsContent() {
@@ -51,17 +54,23 @@ function ProductsContent() {
           const priceValue = Number(data.price ?? 0);
 
           return {
-            id: docItem.id,
-            name: data.name || "Unnamed Product",
-            price: Number.isFinite(priceValue) ? priceValue : 0,
-            stock: Number.isFinite(stockValue) ? stockValue : 0,
-            category: data.category || "Uncategorized",
-            inStock:
-              typeof data.inStock === "boolean"
-                ? data.inStock
-                : (Number.isFinite(stockValue) ? stockValue : 0) > 0,
-            imageUrl: data.imageUrl || "",
-          };
+  id: docItem.id,
+  name: data.name || "Unnamed Product",
+  price: Number.isFinite(priceValue) ? priceValue : 0,
+  stock: Number.isFinite(stockValue) ? stockValue : 0,
+  category: data.category || "Uncategorized",
+  inStock:
+    typeof data.inStock === "boolean"
+      ? data.inStock
+      : stockValue > 0,
+
+  imageUrl: data.imageUrl || "",
+
+  // 🔥 IMPORTANT
+  imageUrls: data.imageUrls || [],
+  videoUrls: data.videoUrls || [],
+  mediaFiles: data.mediaFiles || [],
+};
         });
 
         setProducts(items);
@@ -343,38 +352,18 @@ function ProductsContent() {
                       key={p.id}
                       className="group overflow-hidden rounded-[28px] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                     >
-                      <div className="relative h-[320px] w-full overflow-hidden bg-slate-100">
-                        {p.imageUrl ? (
-                          <img
-                            src={p.imageUrl}
-                            alt={p.name || "Product"}
-                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-slate-400">
-                            No Image
-                          </div>
-                        )}
-
-                        <div className="absolute left-4 top-4 rounded-2xl bg-red-500 px-3 py-1 text-sm font-semibold text-white">
-                          {discount}% OFF
-                        </div>
-
-                        {!p.inStock && (
-                          <div className="absolute left-4 top-16 rounded-xl bg-slate-600 px-3 py-1 text-sm font-semibold text-white">
-                            Sold Out
-                          </div>
-                        )}
+                     <div className="relative h-[320px] w-full overflow-hidden rounded-[20px] bg-black">
+                        <ProductMediaSlider
+  productName={p.name}
+  imageUrl={p.imageUrl}
+  imageUrls={p.imageUrls || []}
+  videoUrls={p.videoUrls || []}
+  mediaFiles={p.mediaFiles || []}
+/>
 
                         <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 transition duration-300 group-hover:opacity-100">
                           <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-700 shadow-md transition hover:scale-105 hover:text-red-500"
-                              aria-label="Wishlist"
-                            >
-                              <Heart size={22} />
-                            </button>
+                           
 
                             <button
                               type="button"
