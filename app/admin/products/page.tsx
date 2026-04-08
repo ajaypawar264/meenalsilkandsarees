@@ -20,8 +20,11 @@ type Product = {
   stock?: number;
   sold?: number;
   category?: string;
+  subCategory?: string; // ✅ added
   color?: string;
   imageUrl?: string;
+  mediaFiles?: { url: string }[];
+  description?: string;
   inStock?: boolean;
 };
 
@@ -112,9 +115,24 @@ export default function AdminProductsPage() {
         `color-${productId}`
       ) as HTMLInputElement | null;
 
+      const nameInput = document.getElementById(
+        `name-${productId}`
+      ) as HTMLInputElement | null;
+
+      const descInput = document.getElementById(
+        `desc-${productId}`
+      ) as HTMLTextAreaElement | null;
+
+      const subCategoryInput = document.getElementById(
+        `subCategory-${productId}`
+      ) as HTMLInputElement | null;
+
       const newStock = Number(stockInput?.value || 0);
       const newPrice = Number(priceInput?.value || 0);
       const newColor = colorInput?.value?.trim() || "";
+      const newName = nameInput?.value?.trim() || "";
+      const newDesc = descInput?.value?.trim() || "";
+      const newSubCategory = subCategoryInput?.value?.trim() || "";
 
       if (newPrice <= 0) {
         alert("Price valid tak");
@@ -126,16 +144,13 @@ export default function AdminProductsPage() {
         return;
       }
 
-      const updateData: {
-        stock: number;
-        price: number;
-        color: string;
-        inStock: boolean;
-        imageUrl?: string;
-      } = {
+      const updateData: any = {
         stock: newStock,
         price: newPrice,
         color: newColor,
+        name: newName,
+        description: newDesc,
+        subCategory: newSubCategory, // ✅ added
         inStock: newStock > 0,
       };
 
@@ -159,6 +174,9 @@ export default function AdminProductsPage() {
                 stock: newStock,
                 price: newPrice,
                 color: newColor,
+                name: newName,
+                description: newDesc,
+                subCategory: newSubCategory, // ✅ added
                 inStock: newStock > 0,
                 imageUrl: updateData.imageUrl || p.imageUrl,
               }
@@ -223,7 +241,11 @@ export default function AdminProductsPage() {
         ) : (
           <div className="space-y-4">
             {products.map((product) => {
-              const previewImage = previewMap[product.id] || product.imageUrl || "";
+              const previewImage =
+                previewMap[product.id] ||
+                product.mediaFiles?.[0]?.url ||
+                product.imageUrl ||
+                "";
 
               return (
                 <div
@@ -231,7 +253,17 @@ export default function AdminProductsPage() {
                   className="grid gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl md:grid-cols-[140px_1fr_auto]"
                 >
                   <div>
-                    {previewImage ? (
+                    {product.mediaFiles?.length ? (
+                      <div className="flex gap-2 overflow-x-auto">
+                        {product.mediaFiles.map((img, i) => (
+                          <img
+                            key={i}
+                            src={img.url}
+                            className="h-28 w-28 rounded-2xl object-cover"
+                          />
+                        ))}
+                      </div>
+                    ) : previewImage ? (
                       <img
                         src={previewImage}
                         alt={product.name}
@@ -258,19 +290,68 @@ export default function AdminProductsPage() {
                     <h2 className="text-xl font-bold text-yellow-400">
                       {product.name}
                     </h2>
-                    <p className="mt-1 text-white/70">{product.category}</p>
+
+                    <p className="mt-1 text-white/70">
+                      {product.description}
+                    </p>
+
+                    <p className="mt-1 text-white/70">
+                      {product.category}
+                    </p>
+
+                    <p className="mt-1 text-white/70">
+                      SubCategory: {product.subCategory || "-"}
+                    </p>
+
                     <p className="mt-1 text-white/70">
                       Color: {product.color || "-"}
                     </p>
+
                     <p className="mt-1 text-sm text-white/60">
                       Sold: {product.sold ?? 0}
                     </p>
+
                     <p className="mt-1 text-sm text-white/60">
                       Product ID: {product.id}
                     </p>
                   </div>
 
                   <div className="grid gap-3 md:min-w-[280px]">
+                    <div>
+                      <label className="mb-1 block text-sm text-white/60">
+                        Product Name
+                      </label>
+                      <input
+                        id={`name-${product.id}`}
+                        type="text"
+                        defaultValue={product.name}
+                        className="w-full rounded-xl border border-white/20 bg-black px-4 py-2 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm text-white/60">
+                        Description
+                      </label>
+                      <textarea
+                        id={`desc-${product.id}`}
+                        defaultValue={product.description || ""}
+                        className="w-full rounded-xl border border-white/20 bg-black px-4 py-2 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm text-white/60">
+                        Sub Category
+                      </label>
+                      <input
+                        id={`subCategory-${product.id}`}
+                        type="text"
+                        defaultValue={product.subCategory || ""}
+                        className="w-full rounded-xl border border-white/20 bg-black px-4 py-2 text-white"
+                      />
+                    </div>
+
                     <div>
                       <label className="mb-1 block text-sm text-white/60">
                         Price
@@ -303,7 +384,6 @@ export default function AdminProductsPage() {
                         id={`color-${product.id}`}
                         type="text"
                         defaultValue={product.color || ""}
-                        placeholder="Ex. Red, Black, Green"
                         className="w-full rounded-xl border border-white/20 bg-black px-4 py-2 text-white"
                       />
                     </div>
@@ -316,7 +396,9 @@ export default function AdminProductsPage() {
                             : "bg-red-500/20 text-red-300"
                         }`}
                       >
-                        {(product.stock ?? 0) > 0 ? "In Stock" : "Out of Stock"}
+                        {(product.stock ?? 0) > 0
+                          ? "In Stock"
+                          : "Out of Stock"}
                       </span>
 
                       <button
@@ -324,7 +406,9 @@ export default function AdminProductsPage() {
                         disabled={savingId === product.id}
                         className="rounded-xl bg-yellow-500 px-4 py-2 font-semibold text-black hover:bg-yellow-400 disabled:opacity-60"
                       >
-                        {savingId === product.id ? "Saving..." : "Update"}
+                        {savingId === product.id
+                          ? "Saving..."
+                          : "Update"}
                       </button>
                     </div>
                   </div>
