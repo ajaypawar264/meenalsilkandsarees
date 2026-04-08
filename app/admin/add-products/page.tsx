@@ -1,8 +1,8 @@
 "use client";
+import { updateDoc, doc, addDoc } from "firebase/firestore";
 
 import { useEffect, useState } from "react";
 import {
-  addDoc,
   collection,
   getDocs,
   serverTimestamp,
@@ -30,7 +30,6 @@ export default function AddProductsPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
 
-  // 🔥 COLOR VARIANTS
   const [colorInputs, setColorInputs] = useState([
     { color: "", media: [] as UploadedMediaItem[] },
   ]);
@@ -53,19 +52,16 @@ export default function AddProductsPage() {
     setProductForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ ADD COLOR
   const handleAddColor = () => {
     setColorInputs((prev) => [...prev, { color: "", media: [] }]);
   };
 
-  // ✅ COLOR CHANGE
   const handleColorChange = (index: number, value: string) => {
     const updated = [...colorInputs];
     updated[index].color = value;
     setColorInputs(updated);
   };
 
-  // ✅ IMAGE UPLOAD PER COLOR
   const handleImageUploadForColor = async (
     e: React.ChangeEvent<HTMLInputElement>,
     index: number
@@ -95,21 +91,20 @@ export default function AddProductsPage() {
     }
   };
 
-  // ✅ FETCH CATEGORIES
-  useEffect(() => {
-    const loadCategories = async () => {
-      const snap = await getDocs(collection(db, "categories"));
-      const data = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setCategories(data);
-    };
+  // 🔥 refresh categories helper
+  const refreshCategories = async () => {
+    const snap = await getDocs(collection(db, "categories"));
+    const data = snap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setCategories(data);
+  };
 
-    loadCategories();
+  useEffect(() => {
+    refreshCategories();
   }, []);
 
-  // ✅ SUBMIT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -124,7 +119,7 @@ export default function AddProductsPage() {
       let finalCategory = productForm.category;
       let finalSubCategory = productForm.subCategory;
 
-      // ✅ CATEGORY
+      // CATEGORY
       if (productForm.category === "Other") {
         if (!productForm.newCategory) {
           alert("Enter new category");
@@ -137,9 +132,11 @@ export default function AddProductsPage() {
           name: productForm.newCategory,
           subCategories: [],
         });
+
+        await refreshCategories();
       }
 
-      // ✅ SUBCATEGORY
+      // SUBCATEGORY
       if (productForm.subCategory === "Other") {
         if (!productForm.newSubCategory) {
           alert("Enter new subcategory");
@@ -147,9 +144,27 @@ export default function AddProductsPage() {
         }
 
         finalSubCategory = productForm.newSubCategory;
+
+        const selectedCat = categories.find(
+          (cat) => cat.name === finalCategory
+        );
+
+        if (selectedCat) {
+          const categoryRef = doc(db, "categories", selectedCat.id);
+
+          await updateDoc(categoryRef, {
+            subCategories: [
+              ...(selectedCat.subCategories || []),
+              productForm.newSubCategory,
+            ],
+          });
+
+          // 🔥 IMPORTANT: refresh after update
+          await refreshCategories();
+        }
       }
 
-      // 🔥 COLOR-WISE PRODUCTS
+      // COLOR PRODUCTS
       for (const item of colorInputs) {
         if (!item.color) continue;
 
@@ -171,7 +186,6 @@ export default function AddProductsPage() {
 
       alert("Products added successfully ✅");
 
-      // RESET
       setProductForm({
         name: "",
         price: "",
@@ -302,7 +316,7 @@ export default function AddProductsPage() {
             />
           )}
 
-          {/* 🔥 COLOR VARIANTS */}
+          {/* COLOR VARIANTS */}
           {colorInputs.map((item, index) => (
             <div key={index} className="border p-3 rounded">
               <input
