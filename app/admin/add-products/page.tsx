@@ -19,6 +19,7 @@ type ProductForm = {
   stock: string;
   category: string;
   subCategory: string;
+  newSubCategory: string; // 🔥 ADD
   newCategory: string;
   color: string;
   imageUrl: string;
@@ -42,6 +43,7 @@ export default function AddProductsPage() {
     stock: "",
     category: "",
     subCategory: "",
+    newSubCategory:"",
     newCategory: "",
     color: "",
     imageUrl: "",
@@ -122,8 +124,33 @@ export default function AddProductsPage() {
 
     try {
       setAddingProduct(true);
+let finalCategory = productForm.category;
+let finalSubCategory = productForm.subCategory;
 
-      let finalCategory = productForm.category;
+// ✅ CATEGORY
+if (productForm.category === "Other") {
+  if (!productForm.newCategory) {
+    alert("Enter new category");
+    return;
+  }
+
+  finalCategory = productForm.newCategory;
+
+  await addDoc(collection(db, "categories"), {
+    name: productForm.newCategory,
+    subCategories: [],
+  });
+}
+
+// ✅ SUBCATEGORY
+if (productForm.subCategory === "Other") {
+  if (!productForm.newSubCategory) {
+    alert("Enter new subcategory");
+    return;
+  }
+
+  finalSubCategory = productForm.newSubCategory;
+}
 
       // ✅ IF OTHER → SAVE CATEGORY TO FIREBASE
       if (productForm.category === "Other") {
@@ -140,14 +167,17 @@ export default function AddProductsPage() {
         });
       }
 
-      await addDoc(collection(db, "products"), {
-        ...productForm,
-        category: finalCategory,
-        price: Number(productForm.price),
-        stock: Number(productForm.stock || 0),
-        mediaFiles: uploadedMedia,
-        createdAt: serverTimestamp(),
-      });
+     const { newCategory, newSubCategory, ...rest } = productForm;
+
+await addDoc(collection(db, "products"), {
+  ...rest,
+  category: finalCategory,
+  subCategory: finalSubCategory,
+  price: Number(productForm.price),
+  stock: Number(productForm.stock || 0),
+  mediaFiles: uploadedMedia,
+  createdAt: serverTimestamp(),
+});
 
       alert("Product added successfully ✅");
 
@@ -159,6 +189,7 @@ export default function AddProductsPage() {
         category: "",
         subCategory: "",
         newCategory: "",
+        newSubCategory:"",
         color: "",
         imageUrl: "",
         inStock: true,
@@ -178,6 +209,7 @@ export default function AddProductsPage() {
   const selectedCategory = categories.find(
     (cat) => cat.name === productForm.category
   );
+  
 
   return (
     <main className="min-h-screen bg-black text-white p-6">
@@ -271,6 +303,18 @@ export default function AddProductsPage() {
 
             <option value="Other">Other</option>
           </select>
+          {/* ✅ NEW SUBCATEGORY INPUT */}
+{productForm.subCategory === "Other" && (
+  <input
+    type="text"
+    placeholder="New SubCategory"
+    value={productForm.newSubCategory}
+    onChange={(e) =>
+      handleChange("newSubCategory", e.target.value)
+    }
+    className="p-3 rounded bg-black/30"
+  />
+)}
 
           <input
             type="text"
