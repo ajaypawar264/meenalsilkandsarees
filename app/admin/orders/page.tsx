@@ -64,25 +64,31 @@ export default function AdminOrdersPage() {
   const [billOrder, setBillOrder] = useState<Order | null>(null);
 
   const fetchOrders = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
 
-      const data = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...(docSnap.data() as Omit<Order, "id">),
-      }));
+    const data = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...(docSnap.data() as Omit<Order, "id">),
+    }));
 
-      setOrders(data);
-    } catch (error) {
-      console.error("Orders fetch error:", error);
-      alert("Orders fetch kartana error ala.");
-    } finally {
-      setLoading(false);
+    setOrders(data);
+
+    // ✅ refresh selectedOrder if exists
+    if (selectedOrder) {
+      const updated = data.find((o) => o.id === selectedOrder.id);
+      if (updated) setSelectedOrder(updated);
     }
-  };
+
+  } catch (error) {
+    console.error("Orders fetch error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchOrders();
@@ -457,6 +463,15 @@ export default function AdminOrdersPage() {
                         <td className="p-4 text-sm">{getOrderDate(order.createdAt)}</td>
                         <td className="p-4">
                        <div className="flex min-w-[170px] flex-col gap-2 relative z-10">
+ 
+ 
+ <button
+  onClick={fetchOrders}
+  className="mb-4 rounded-lg bg-[#7a2848] px-4 py-2 text-white"
+>
+  Refresh Orders
+</button>
+ 
   <button
   onClick={() => {
     console.log("clicked", order); // debug
@@ -505,6 +520,7 @@ export default function AdminOrdersPage() {
     win.close();
   }, 500);
 }}
+
 
                               className="rounded-lg bg-green-600 px-3 py-2 text-sm text-white hover:opacity-90"
                             >
@@ -590,6 +606,7 @@ export default function AdminOrdersPage() {
                     >
                       Verify Payment
                     </button>
+                    
                   )}
                 </div>
 

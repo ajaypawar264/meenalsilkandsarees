@@ -44,7 +44,7 @@ export default function CartPage() {
   const [address, setAddress] = useState("");
   const [message, setMessage] = useState("");
   const [placing, setPlacing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "ONLINE">("COD");
+  const [paymentMethod, setPaymentMethod] = useState<"ONLINE">("ONLINE");
 
   const refreshCart = () => {
     const cart = getCart();
@@ -147,35 +147,20 @@ export default function CartPage() {
     return docRef;
   };
 
-  const handleCODOrder = async (
-    cleanName: string,
-    cleanPhone: string,
-    cleanAddress: string
-  ) => {
-    await saveOrderToFirestore(
-      cleanName,
-      cleanPhone,
-      cleanAddress,
-      "COD",
-      "Pending"
-    );
+ 
 
-    clearOrderedItemsFromCart();
-    setAddress("");
-    setPaymentMethod("COD");
-    setMessage("COD order placed successfully ✅ Bill generated");
-  };
+
 
   const handleOnlinePayment = async (
-    cleanName: string,
-    cleanPhone: string,
-    cleanAddress: string
-  ) => {
-    const docRef = await saveOrderToFirestore(
-      cleanName,
-      cleanPhone,
+          cleanName: string,
+           cleanPhone: string,
+          cleanAddress: string
+                   ) => {
+         const docRef = await saveOrderToFirestore(
+              cleanName,
+               cleanPhone,
       cleanAddress,
-      "ONLINE",
+                 "ONLINE",
       "Pending"
     );
 
@@ -186,50 +171,57 @@ export default function CartPage() {
     router.push(`/payment/${docRef.id}`);
   };
 
-  const handleOrder = async () => {
-    const cleanName = name.trim();
-    const cleanPhone = phone.trim();
-    const cleanAddress = address.trim();
+ const handleOrder = async () => {
+  const cleanName = name.trim();
+  const cleanPhone = phone.trim();
+  const cleanAddress = address.trim();
 
-    if (!cleanName || !cleanPhone || !cleanAddress) {
-      setMessage("Please fill customer details");
-      return;
-    }
+  if (!cleanName || !cleanPhone || !cleanAddress) {
+    setMessage("Please fill customer details");
+    return;
+  }
 
-    if (!/^\d{10}$/.test(cleanPhone)) {
-      setMessage("Please enter a valid 10-digit phone number");
-      return;
-    }
+  if (!/^\d{10}$/.test(cleanPhone)) {
+    setMessage("Please enter a valid 10-digit phone number");
+    return;
+  }
 
-    if (selectedItems.length === 0) {
-      setMessage("Please select at least one item");
-      return;
-    }
+  if (selectedItems.length === 0) {
+    setMessage("Please select at least one item");
+    return;
+  }
 
-    if (grandTotal <= 0) {
-      setMessage("Invalid order total");
-      return;
-    }
+  if (grandTotal <= 0) {
+    setMessage("Invalid order total");
+    return;
+  }
 
-    try {
-      setPlacing(true);
-      setMessage("");
+  try {
+    setPlacing(true);
+    setMessage("");
 
-      if (paymentMethod === "COD") {
-        await handleCODOrder(cleanName, cleanPhone, cleanAddress);
-      } else {
-        await handleOnlinePayment(cleanName, cleanPhone, cleanAddress);
-      }
-    } catch (error: any) {
-      console.error("Order error:", error);
-      setMessage(error?.message || "Order failed ❌");
-      setPlacing(false);
-    } finally {
-      if (paymentMethod === "COD") {
-        setPlacing(false);
-      }
-    }
-  };
+    const docRef = await saveOrderToFirestore(
+      cleanName,
+      cleanPhone,
+      cleanAddress,
+      "ONLINE",
+      "Pending"
+    );
+
+    clearOrderedItemsFromCart();
+
+    setAddress("");
+    setMessage("Order created. Redirecting to payment page...");
+
+    router.push(`/payment/${docRef.id}`);
+
+  } catch (error: any) {
+    console.error("Order error:", error);
+    setMessage(error?.message || "Order failed ❌");
+  } finally {
+    setPlacing(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-gray-100 px-6 py-10 text-black">
@@ -390,16 +382,7 @@ export default function CartPage() {
               <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <p className="font-semibold">Payment Method</p>
 
-                <label className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="COD"
-                    checked={paymentMethod === "COD"}
-                    onChange={() => setPaymentMethod("COD")}
-                  />
-                  Cash on Delivery
-                </label>
+                
 
                 <label className="flex items-center gap-3">
                   <input
@@ -414,17 +397,13 @@ export default function CartPage() {
               </div>
 
               <button
-                type="button"
-                onClick={handleOrder}
-                disabled={placing}
-                className="w-full rounded bg-yellow-500 py-3 font-semibold hover:bg-yellow-400 disabled:opacity-60"
-              >
-                {placing
-                  ? "Processing..."
-                  : paymentMethod === "COD"
-                  ? "Place COD Order"
-                  : "Proceed to Payment Page"}
-              </button>
+  type="button"
+  onClick={handleOrder}
+  disabled={placing}
+  className="w-full rounded bg-yellow-500 py-3 font-semibold hover:bg-yellow-400 disabled:opacity-60"
+>
+  {placing ? "Processing..." : "Proceed to Payment Page"}
+</button>
 
               {message && (
                 <p
