@@ -422,10 +422,10 @@ export default function AdminOrdersPage() {
                     </tr>
                   ) : (
                     filteredOrders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="border-t border-[#f1dfdf] align-top"
-                      >
+                    <tr
+  key={order.id}
+  className="border-t border-[#f1dfdf] align-top relative z-0"
+>
                         <td className="p-4 font-medium">
                           {order.orderNumber || order.id}
                         </td>
@@ -456,13 +456,16 @@ export default function AdminOrdersPage() {
                         </td>
                         <td className="p-4 text-sm">{getOrderDate(order.createdAt)}</td>
                         <td className="p-4">
-                          <div className="flex min-w-[170px] flex-col gap-2">
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="rounded-lg bg-[#7a2848] px-3 py-2 text-sm text-white hover:opacity-90"
-                            >
-                              View Order
-                            </button>
+                       <div className="flex min-w-[170px] flex-col gap-2 relative z-10">
+  <button
+  onClick={() => {
+    console.log("clicked", order); // debug
+    setSelectedOrder({ ...order });
+  }}
+  className="rounded-lg bg-[#7a2848] px-3 py-2 text-sm text-white hover:opacity-90 cursor-pointer relative z-10"
+>
+  View Order
+</button>
 
                             <button
                               onClick={() => setBillOrder(order)}
@@ -526,7 +529,7 @@ export default function AdminOrdersPage() {
             </div>
           </div>
 
-          <div className="no-print rounded-2xl border border-[#ead7d7] bg-white p-5 shadow-sm">
+         <div className="no-print overflow-visible rounded-2xl border border-[#ead7d7] bg-white shadow-sm">
             <h2 className="mb-4 text-2xl font-bold text-[#7a2848]">
               Order Details
             </h2>

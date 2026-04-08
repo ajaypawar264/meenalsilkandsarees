@@ -419,13 +419,13 @@ function ProductsContent() {
                             {p.category || "Uncategorized"}
                           </span>
 
-                          <span
-                            className={`text-sm font-medium ${
-                              p.inStock ? "text-green-600" : "text-red-500"
-                            }`}
-                          >
-                            {p.inStock ? `Stock: ${p.stock ?? 0}` : "Out of stock"}
-                          </span>
+<span
+  className={`text-sm font-medium ${
+    p.inStock ? "text-green-600" : "text-red-500"
+  }`}
+>
+  {p.inStock ? "In Stock" : "Out of Stock"}
+</span>
                         </div>
 
                         <button

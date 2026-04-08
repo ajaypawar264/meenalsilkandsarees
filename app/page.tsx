@@ -637,13 +637,13 @@ export default function Home() {
         </div>
 
         <div className="mt-3 flex items-center justify-between">
-          <span
-            className={`text-sm font-medium ${
-              p.inStock ? "text-green-400" : "text-red-400"
-            }`}
-          >
-            {p.inStock ? `Stock: ${p.stock ?? 0}` : "Out of stock"}
-          </span>
+         <span
+  className={`text-sm font-medium ${
+    p.inStock ? "text-green-600" : "text-red-500"
+  }`}
+>
+  {p.inStock ? "In Stock" : "Out of Stock"}
+</span>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
