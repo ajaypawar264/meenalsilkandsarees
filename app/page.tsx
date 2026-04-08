@@ -29,6 +29,7 @@ type Product = {
   inStock: boolean;
   imageUrl?: string;
   imageBase64?: string;
+   color?: string;
   imageUrls?: string[];
   videoUrls?: string[];
   mediaFiles?: ProductMediaItem[];
