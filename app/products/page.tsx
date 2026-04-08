@@ -17,6 +17,7 @@ type Product = {
   name: string;
   price: number;
   stock?: number;
+  color?: string;
   category?: string;
   inStock?: boolean;
   imageUrl?: string;
@@ -56,6 +57,7 @@ function ProductsContent() {
           return {
   id: docItem.id,
   name: data.name || "Unnamed Product",
+  color: data.color || "",
   price: Number.isFinite(priceValue) ? priceValue : 0,
   stock: Number.isFinite(stockValue) ? stockValue : 0,
   category: data.category || "Uncategorized",
@@ -98,64 +100,100 @@ function ProductsContent() {
     );
   }, [products]);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const productName = (p.name || "").toLowerCase();
-      const productPrice = Number(p.price ?? 0);
-      const productCategory = p.category || "Uncategorized";
-      const productInStock = Boolean(p.inStock);
+ const filteredProducts = useMemo(() => {
+  return products.filter((p) => {
+    const productName = (p.name || "").toLowerCase();
+    const productCategory = (p.category || "").toLowerCase();
+    const productColor = (p.color || "").toLowerCase();
+    const productPrice = Number(p.price ?? 0);
+    const productInStock = Boolean(p.inStock);
 
-      const matchesSearch = productName.includes(search.toLowerCase());
+    const searchValue = search.toLowerCase().trim();
 
-      const matchesPrice =
-        productPrice >= appliedMinPrice && productPrice <= appliedMaxPrice;
+    // 🔥 PRICE SEARCH FIX
+    let matchesPriceSearch = false;
 
-      const matchesCategory =
-        selectedCategories.length === 0 ||
-        selectedCategories.includes(productCategory);
+    if (searchValue) {
+      if (searchValue.includes("-")) {
+        const [min, max] = searchValue.split("-").map(Number);
+        if (!isNaN(min) && !isNaN(max)) {
+          matchesPriceSearch =
+            productPrice >= min && productPrice <= max;
+        }
+      } else if (!isNaN(Number(searchValue))) {
+        matchesPriceSearch =
+          productPrice.toString().includes(searchValue);
+      }
+    }
 
-      const matchesStock =
-        stockFilter === "all" ||
-        (stockFilter === "inStock" && productInStock) ||
-        (stockFilter === "outOfStock" && !productInStock);
+    // 🔥 TEXT SEARCH
+    const matchesText =
+      productName.includes(searchValue) ||
+      productCategory.includes(searchValue) ||
+      productColor.includes(searchValue);
 
-      return matchesSearch && matchesPrice && matchesCategory && matchesStock;
-    });
-  }, [
-    products,
-    search,
-    appliedMinPrice,
-    appliedMaxPrice,
-    selectedCategories,
-    stockFilter,
-  ]);
+    // 🔥 FINAL SEARCH
+    const matchesSearch =
+      !searchValue || matchesText || matchesPriceSearch;
 
-  const handleApplyPrice = () => {
-    const min = Number(minPrice) || 0;
-    const max = Number(maxPrice) || 50000;
+    // 🔥 FILTERS
+    const matchesPrice =
+      productPrice >= appliedMinPrice &&
+      productPrice <= appliedMaxPrice;
 
-    setAppliedMinPrice(min);
-    setAppliedMaxPrice(max);
-  };
+    const matchesCategory =
+      selectedCategories.length === 0 ||
+      selectedCategories.includes(p.category || "Uncategorized");
 
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((item) => item !== category)
-        : [...prev, category]
+    const matchesStock =
+      stockFilter === "all" ||
+      (stockFilter === "inStock" && productInStock) ||
+      (stockFilter === "outOfStock" && !productInStock);
+
+    return (
+      matchesSearch &&
+      matchesPrice &&
+      matchesCategory &&
+      matchesStock
     );
-  };
+  });
+}, [
+  products,
+  search,
+  appliedMinPrice,
+  appliedMaxPrice,
+  selectedCategories,
+  stockFilter,
+]);
 
-  const clearFilters = () => {
-    setSearch("");
-    setMinPrice("0");
-    setMaxPrice("50000");
-    setAppliedMinPrice(0);
-    setAppliedMaxPrice(50000);
-    setSelectedCategories([]);
-    setStockFilter("all");
-    router.push("/products");
-  };
+                     
+
+                            const handleApplyPrice = () => {
+                            const min = Number(minPrice) || 0;
+                        const max = Number(maxPrice) || 50000;
+
+                          setAppliedMinPrice(min);
+                          setAppliedMaxPrice(max);
+                        };
+
+                          const handleCategoryChange = (category: string) => {
+                            setSelectedCategories((prev) =>
+                              prev.includes(category)
+                                ? prev.filter((item) => item !== category)
+                                : [...prev, category]
+                            );
+                          };
+
+                        const clearFilters = () => {
+                          setSearch("");
+                          setMinPrice("0");
+                          setMaxPrice("50000");
+                          setAppliedMinPrice(0);
+                          setAppliedMaxPrice(50000);
+                          setSelectedCategories([]);
+                          setStockFilter("all");
+                          router.push("/products");
+                        };
 
   return (
     <main className="min-h-screen bg-[#f7f7f9] text-slate-900">
@@ -405,28 +443,34 @@ function ProductsContent() {
                           </Link>
                         </h3>
 
-                        <div className="mt-3 flex items-end gap-3">
-                          <p className="text-2xl font-bold text-[#233f99]">
-                            ₹{productPrice}
-                          </p>
-                          <p className="pb-1 text-base text-slate-400 line-through">
-                            ₹{fakeOldPrice}
-                          </p>
-                        </div>
+                     <div className="mt-3 flex items-center justify-between">
+  <div className="flex items-end gap-3">
+    <p className="text-2xl font-bold text-[#1a1a1a]">
+      ₹{productPrice}
+    </p>
+    <p className="pb-1 text-base text-white/35 line-through">
+      ₹{fakeOldPrice}
+    </p>
+  </div>
 
-                        <div className="mt-3 flex items-center justify-between gap-2">
-                          <span className="rounded-full bg-[#eef2ff] px-3 py-1 text-xs font-medium text-[#233f99]">
-                            {p.category || "Uncategorized"}
-                          </span>
+  
+</div>
 
-<span
-  className={`text-sm font-medium ${
-    p.inStock ? "text-green-600" : "text-red-500"
-  }`}
->
-  {p.inStock ? "In Stock" : "Out of Stock"}
-</span>
-                        </div>
+                       <div className="mt-3 flex items-center justify-between">
+  {/* LEFT SIDE → CATEGORY */}
+  <span className="rounded-full border border-[#f3c46b]/20 bg-[#f3c46b]/10 px-3 py-1 text-xs font-medium text-[#ffd98f]">
+    {p.category || "General"}
+  </span>
+
+  {/* RIGHT SIDE → STOCK */}
+  <span
+    className={`text-sm font-medium ${
+      p.inStock ? "text-green-600" : "text-red-500"
+    }`}
+  >
+    {p.inStock ? "In Stock" : "Out of Stock"}
+  </span>
+</div>
 
                         <button
                           type="button"

@@ -214,22 +214,38 @@ export default function Home() {
     return slides;
   }, [products, categories]);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchesSearch = (p.name || "")
-        .toLowerCase()
-        .includes(search.toLowerCase());
+const filteredProducts = useMemo(() => {
+  return products.filter((p) => {
+    const searchValue = (search || "").toLowerCase().trim();
 
-      const matchesCategory =
-        selectedCategory === "All" || (p.category || "") === selectedCategory;
+    const productName = (p.name || "").toLowerCase();
+    const productCategory = (p.category || "").toLowerCase();
 
-      const matchesSubCategory =
-        selectedSubCategory === "All" ||
-        (p.subCategory || "") === selectedSubCategory;
+    // 🔥 IMPORTANT (color fix)
+    const productColor = String(p.color || "")
+      .toLowerCase()
+      .replace(/\s+/g, ""); // space remove
 
-      return matchesSearch && matchesCategory && matchesSubCategory;
-    });
-  }, [products, search, selectedCategory, selectedSubCategory]);
+    const cleanSearch = searchValue.replace(/\s+/g, "");
+
+    // ✅ TEXT + COLOR SEARCH
+    const matchesSearch =
+      !cleanSearch ||
+      productName.includes(searchValue) ||
+      productCategory.includes(searchValue) ||
+      productColor.includes(cleanSearch);
+
+    const matchesCategory =
+      selectedCategory === "All" ||
+      (p.category || "") === selectedCategory;
+
+    const matchesSubCategory =
+      selectedSubCategory === "All" ||
+      (p.subCategory || "") === selectedSubCategory;
+
+    return matchesSearch && matchesCategory && matchesSubCategory;
+  });
+}, [products, search, selectedCategory, selectedSubCategory]);
 
   const featuredProducts = filteredProducts.slice(0, 8);
 

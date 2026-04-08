@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addDoc,
   collection,
@@ -19,34 +19,33 @@ type ProductForm = {
   stock: string;
   category: string;
   subCategory: string;
-  newSubCategory: string; // 🔥 ADD
+  newSubCategory: string;
   newCategory: string;
-  color: string;
-  imageUrl: string;
+  description: string;
   inStock: boolean;
 };
 
 export default function AddProductsPage() {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [showForm, setShowForm] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
 
+  // 🔥 COLOR VARIANTS
+  const [colorInputs, setColorInputs] = useState([
+    { color: "", media: [] as UploadedMediaItem[] },
+  ]);
+
   const [categories, setCategories] = useState<any[]>([]);
-  const [mediaPreview, setMediaPreview] = useState<UploadedMediaItem[]>([]);
-  const [uploadedMedia, setUploadedMedia] = useState<UploadedMediaItem[]>([]);
 
   const [productForm, setProductForm] = useState<ProductForm>({
     name: "",
     price: "",
     stock: "",
     category: "",
+    description: "",
     subCategory: "",
-    newSubCategory:"",
+    newSubCategory: "",
     newCategory: "",
-    color: "",
-    imageUrl: "",
     inStock: true,
   });
 
@@ -54,40 +53,22 @@ export default function AddProductsPage() {
     setProductForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ FETCH CATEGORIES
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const snap = await getDocs(collection(db, "categories"));
-
-        console.log("RAW SNAP:", snap.docs);
-
-        const data = snap.docs.map((doc) => {
-          const d = doc.data();
-          return {
-            id: doc.id,
-            name: d.name?.trim(),
-            subCategories: d.subCategories || [],
-          };
-        });
-
-        console.log("CATEGORIES:", data);
-
-        setCategories(data);
-      } catch (err) {
-        console.error("Category fetch error:", err);
-      }
-    };
-
-    loadCategories();
-  }, []);
-
-  const openFilePicker = () => {
-    fileInputRef.current?.click();
+  // ✅ ADD COLOR
+  const handleAddColor = () => {
+    setColorInputs((prev) => [...prev, { color: "", media: [] }]);
   };
 
-  const handleImageUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
+  // ✅ COLOR CHANGE
+  const handleColorChange = (index: number, value: string) => {
+    const updated = [...colorInputs];
+    updated[index].color = value;
+    setColorInputs(updated);
+  };
+
+  // ✅ IMAGE UPLOAD PER COLOR
+  const handleImageUploadForColor = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    index: number
   ) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -102,10 +83,10 @@ export default function AddProductsPage() {
         uploaded.push(res);
       }
 
-      setUploadedMedia((prev) => [...prev, ...uploaded]);
-      setMediaPreview((prev) => [...prev, ...uploaded]);
+      const updated = [...colorInputs];
+      updated[index].media = [...updated[index].media, ...uploaded];
 
-      handleChange("imageUrl", uploaded[0]?.url || "");
+      setColorInputs(updated);
     } catch (err) {
       console.error(err);
       alert("Upload failed");
@@ -114,6 +95,21 @@ export default function AddProductsPage() {
     }
   };
 
+  // ✅ FETCH CATEGORIES
+  useEffect(() => {
+    const loadCategories = async () => {
+      const snap = await getDocs(collection(db, "categories"));
+      const data = snap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setCategories(data);
+    };
+
+    loadCategories();
+  }, []);
+
+  // ✅ SUBMIT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -124,35 +120,11 @@ export default function AddProductsPage() {
 
     try {
       setAddingProduct(true);
-let finalCategory = productForm.category;
-let finalSubCategory = productForm.subCategory;
 
-// ✅ CATEGORY
-if (productForm.category === "Other") {
-  if (!productForm.newCategory) {
-    alert("Enter new category");
-    return;
-  }
+      let finalCategory = productForm.category;
+      let finalSubCategory = productForm.subCategory;
 
-  finalCategory = productForm.newCategory;
-
-  await addDoc(collection(db, "categories"), {
-    name: productForm.newCategory,
-    subCategories: [],
-  });
-}
-
-// ✅ SUBCATEGORY
-if (productForm.subCategory === "Other") {
-  if (!productForm.newSubCategory) {
-    alert("Enter new subcategory");
-    return;
-  }
-
-  finalSubCategory = productForm.newSubCategory;
-}
-
-      // ✅ IF OTHER → SAVE CATEGORY TO FIREBASE
+      // ✅ CATEGORY
       if (productForm.category === "Other") {
         if (!productForm.newCategory) {
           alert("Enter new category");
@@ -167,19 +139,37 @@ if (productForm.subCategory === "Other") {
         });
       }
 
-     const { newCategory, newSubCategory, ...rest } = productForm;
+      // ✅ SUBCATEGORY
+      if (productForm.subCategory === "Other") {
+        if (!productForm.newSubCategory) {
+          alert("Enter new subcategory");
+          return;
+        }
 
-await addDoc(collection(db, "products"), {
-  ...rest,
-  category: finalCategory,
-  subCategory: finalSubCategory,
-  price: Number(productForm.price),
-  stock: Number(productForm.stock || 0),
-  mediaFiles: uploadedMedia,
-  createdAt: serverTimestamp(),
-});
+        finalSubCategory = productForm.newSubCategory;
+      }
 
-      alert("Product added successfully ✅");
+      // 🔥 COLOR-WISE PRODUCTS
+      for (const item of colorInputs) {
+        if (!item.color) continue;
+
+        await addDoc(collection(db, "products"), {
+          name: productForm.name,
+          category: finalCategory,
+          subCategory: finalSubCategory,
+          color: item.color,
+          mediaFiles: item.media,
+          price: Number(productForm.price),
+          stock: Number(productForm.stock || 0),
+          description:
+            productForm.description ||
+            "Premium quality product from our store",
+          inStock: productForm.inStock,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      alert("Products added successfully ✅");
 
       // RESET
       setProductForm({
@@ -187,15 +177,14 @@ await addDoc(collection(db, "products"), {
         price: "",
         stock: "",
         category: "",
+        description: "",
         subCategory: "",
         newCategory: "",
-        newSubCategory:"",
-        color: "",
-        imageUrl: "",
+        newSubCategory: "",
         inStock: true,
       });
-      setMediaPreview([]);
-      setUploadedMedia([]);
+
+      setColorInputs([{ color: "", media: [] }]);
       setShowForm(false);
     } catch (err) {
       console.error(err);
@@ -205,17 +194,14 @@ await addDoc(collection(db, "products"), {
     }
   };
 
-  // ✅ GET SUBCATEGORY
   const selectedCategory = categories.find(
     (cat) => cat.name === productForm.category
   );
-  
 
   return (
     <main className="min-h-screen bg-black text-white p-6">
       <h1 className="text-3xl font-bold mb-6">Add Products</h1>
 
-      {/* BUTTON */}
       <button
         onClick={() => setShowForm(!showForm)}
         className="mb-6 bg-yellow-400 text-black px-6 py-3 rounded-xl font-bold"
@@ -223,7 +209,6 @@ await addDoc(collection(db, "products"), {
         {showForm ? "Close Form" : "Add Product"}
       </button>
 
-      {/* FORM */}
       {showForm && (
         <form
           onSubmit={handleSubmit}
@@ -253,32 +238,35 @@ await addDoc(collection(db, "products"), {
             className="p-3 rounded bg-black/30"
           />
 
+          <textarea
+            placeholder="Description"
+            value={productForm.description}
+            onChange={(e) => handleChange("description", e.target.value)}
+            className="p-3 rounded bg-black/30"
+          />
+
           {/* CATEGORY */}
           <select
             value={productForm.category}
             onChange={(e) => {
               handleChange("category", e.target.value);
               handleChange("subCategory", "");
-              handleChange("newCategory", "");
             }}
             className="p-3 rounded bg-black/30"
           >
             <option value="">Select Category</option>
-
             {categories.map((cat) => (
               <option key={cat.id} value={cat.name}>
                 {cat.name}
               </option>
             ))}
-
             <option value="Other">Other</option>
           </select>
 
-          {/* NEW CATEGORY */}
           {productForm.category === "Other" && (
             <input
               type="text"
-              placeholder="New Category"
+              placeholder="Enter New Category"
               value={productForm.newCategory}
               onChange={(e) =>
                 handleChange("newCategory", e.target.value)
@@ -294,65 +282,66 @@ await addDoc(collection(db, "products"), {
             className="p-3 rounded bg-black/30"
           >
             <option value="">Select SubCategory</option>
-
             {selectedCategory?.subCategories?.map((sub: string) => (
               <option key={sub} value={sub}>
                 {sub}
               </option>
             ))}
-
             <option value="Other">Other</option>
           </select>
-          {/* ✅ NEW SUBCATEGORY INPUT */}
-{productForm.subCategory === "Other" && (
-  <input
-    type="text"
-    placeholder="New SubCategory"
-    value={productForm.newSubCategory}
-    onChange={(e) =>
-      handleChange("newSubCategory", e.target.value)
-    }
-    className="p-3 rounded bg-black/30"
-  />
-)}
 
-          <input
-            type="text"
-            placeholder="Color"
-            value={productForm.color}
-            onChange={(e) => handleChange("color", e.target.value)}
-            className="p-3 rounded bg-black/30"
-          />
+          {productForm.subCategory === "Other" && (
+            <input
+              type="text"
+              placeholder="Enter New SubCategory"
+              value={productForm.newSubCategory}
+              onChange={(e) =>
+                handleChange("newSubCategory", e.target.value)
+              }
+              className="p-3 rounded bg-black/30"
+            />
+          )}
 
-          {/* IMAGE UPLOAD */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            hidden
-            multiple
-            onChange={handleImageUpload}
-          />
+          {/* 🔥 COLOR VARIANTS */}
+          {colorInputs.map((item, index) => (
+            <div key={index} className="border p-3 rounded">
+              <input
+                type="text"
+                placeholder="Enter Color"
+                value={item.color}
+                onChange={(e) =>
+                  handleColorChange(index, e.target.value)
+                }
+                className="p-3 rounded bg-black/30 w-full mb-2"
+              />
+
+              <input
+                type="file"
+                multiple
+                onChange={(e) =>
+                  handleImageUploadForColor(e, index)
+                }
+              />
+
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {item.media.map((img, i) => (
+                  <img
+                    key={i}
+                    src={img.url}
+                    className="h-20 w-full object-cover"
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
 
           <button
             type="button"
-            onClick={openFilePicker}
-            className="bg-white/10 p-3 rounded"
+            onClick={handleAddColor}
+            className="bg-blue-500 px-4 py-2 rounded"
           >
-            Upload Images
+            ➕ Add Another Color
           </button>
-
-          {uploadingImage && <p>Uploading...</p>}
-
-          {/* PREVIEW */}
-          <div className="grid grid-cols-3 gap-2">
-            {mediaPreview.map((item, i) => (
-              <img
-                key={i}
-                src={item.url}
-                className="h-20 w-full object-cover rounded"
-              />
-            ))}
-          </div>
 
           <button
             type="submit"
