@@ -1,7 +1,7 @@
 "use client";
 
 export const dynamic = "force-dynamic";
-
+import { addToWishlist, removeFromWishlist } from "@/lib/wishlist";
 import ProductMediaSlider from "@/app/components/ProductMediaSlider";
 import Reviews from "./components/Reviews";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase";
 import { addToCart } from "@/lib/cart";
 import Header from "./components/Header";
 
+
 type ProductMediaItem = {
   url: string;
   type: "image" | "video";
@@ -21,6 +22,7 @@ type ProductMediaItem = {
 
 type Product = {
   id: string;
+  originalPrice?: number; // 🔥 ADD THIS
   name: string;
   price: number;
   stock?: number;
@@ -111,17 +113,86 @@ export default function Home() {
   const [selectedSubCategory, setSelectedSubCategory] = useState("All");
   const [dailyOfferVideo, setDailyOfferVideo] = useState("");
   const router = useRouter();
+  const [heroImages, setHeroImages] = useState<any[]>([]);
+  useEffect(() => {
+  const stored = localStorage.getItem("wishlist");
 
+  if (stored) {
+    const parsed = JSON.parse(stored);
+    setWishlist(parsed.map((item: any) => item.id));
+  }
+}, []);
+  
+const [wishlist, setWishlist] = useState<any[]>([]);
+useEffect(() => {
+  const stored = localStorage.getItem("wishlist");
+  if (stored) {
+    setWishlist(JSON.parse(stored));
+  }
+}, []);
+const toggleWishlist = (product: Product) => {
+  const stored = localStorage.getItem("wishlist");
+  let wishlist = stored ? JSON.parse(stored) : [];
+
+  const exists = wishlist.find((item: any) => item.id === product.id);
+
+  if (exists) {
+    wishlist = wishlist.filter((item: any) => item.id !== product.id);
+  } else {
+    wishlist.push({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl:
+        product.imageUrl ||
+        product.imageUrls?.[0] ||
+        product.mediaFiles?.find((m) => m.type === "image")?.url ||
+        "",
+    });
+  }
+
+  localStorage.setItem("wishlist", JSON.stringify(wishlist));
+
+  // 🔥 update state
+  setWishlist(wishlist.map((item: any) => item.id));
+
+  // 🔥 header update event
+  window.dispatchEvent(new Event("wishlistUpdated"));
+};
+useEffect(() => {
+  const unsubscribe = onSnapshot(doc(db, "heroSection", "main"), (snap) => {
+    console.log("SNAP:", snap.exists(), snap.data());
+
+    if (snap.exists()) {
+      setHeroImages(snap.data()?.items || []);
+    } else {
+      console.log("No document found");
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
   useEffect(() => {
     const q = query(collection(db, "products"));
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const items: Product[] = snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...(docItem.data() as Omit<Product, "id">),
-        }));
+       const items: Product[] = snapshot.docs.map((docItem) => {
+  const data = docItem.data() as any;
+
+  return {
+    id: docItem.id,
+    ...data,
+
+    // 🔥 MAIN FIX
+    imageUrl: data.imageUrl || data.colors?.[0]?.imageUrl || "",
+
+    imageUrls: data.imageUrls || [],
+    videoUrls: data.videoUrls || [],
+    mediaFiles: data.mediaFiles || [],
+  };
+});
 
         const sortedItems = items.sort((a, b) => {
           const aTime = a?.createdAt?.seconds ?? 0;
@@ -149,7 +220,14 @@ export default function Home() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, []);useEffect(() => {
+  if (search.trim() !== "") {
+    const section = document.getElementById("products");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+}, [search]);
 
   const categories = useMemo(() => {
     const dbCategories = Array.from(
@@ -248,7 +326,7 @@ const filteredProducts = useMemo(() => {
   });
 }, [products, search, selectedCategory, selectedSubCategory]);
 
-  const featuredProducts = filteredProducts.slice(0, 8);
+const featuredProducts = filteredProducts.slice(0, 8);
 
   const isYouTube =
     dailyOfferVideo.includes("youtube.com") ||
@@ -404,69 +482,30 @@ const filteredProducts = useMemo(() => {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="overflow-hidden rounded-[30px] border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-              {dailyOfferVideo ? (
-                <div className="relative h-[420px] w-full bg-black/20">
-                  {isYouTube ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${getYouTubeId(
-                        dailyOfferVideo
-                      )}?autoplay=1&mute=1&loop=1&playlist=${getYouTubeId(
-                        dailyOfferVideo
-                      )}`}
-                      className="h-[420px] w-full"
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen
-                    />
-                  ) : isInstagram ? (
-                    <iframe
-                      src={getInstagramEmbedUrl(dailyOfferVideo)}
-                      className="h-[420px] w-full"
-                      allowFullScreen
-                    />
-                  ) : isDirectVideo ? (
-                    <video
-                      key={dailyOfferVideo}
-                      className="h-[420px] w-full object-cover"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      controls
-                      preload="auto"
-                    >
-                      <source src={dailyOfferVideo} />
-                      Your browser does not support the video tag.
-                    </video>
-                  ) : (
-                    <img
-                      src="/hero-saree.jpg"
-                      alt="Saree"
-                      className="h-[420px] w-full object-cover transition duration-500 hover:scale-105"
-                    />
-                  )}
-
-                  <div className="absolute left-3 top-3 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-lg">
-                    Daily Offer
-                  </div>
-                </div>
-              ) : (
-                <img
-                  src="/hero-saree.jpg"
-                  alt="Saree"
-                  className="h-[420px] w-full object-cover transition duration-500 hover:scale-105"
-                />
-              )}
-            </div>
-
-            <div className="mt-10 overflow-hidden rounded-[30px] border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-              <img
-                src="/minal.jpeg"
-                alt="Saree"
-                className="h-[420px] w-full object-cover transition duration-500 hover:scale-105"
-              />
-            </div>
-          </div>
+  {[0, 1].map((i) => (
+    <div
+      key={i}
+      className="overflow-hidden rounded-[30px] border border-white/10 bg-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
+    >
+     {heroImages[i]?.type === "video" ? (
+ <video
+  src={heroImages[i]?.url}
+    autoPlay
+    muted
+    loop
+    playsInline
+    className="h-[420px] w-full object-cover"
+  />
+) : (
+  <img
+   
+  src={heroImages[i]?.url || "/minal.jpeg"}
+    className="h-[420px] w-full object-cover transition duration-500 hover:scale-105"
+  />
+)}
+    </div>
+  ))}
+</div>
         </div>
       </section>
 
@@ -586,25 +625,33 @@ const filteredProducts = useMemo(() => {
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
            {featuredProducts.map((p) => {
-  const price = Number(p.price || 0);
-  const fakeOldPrice = Math.round(price * 1.45 || 0);
-  const discount =
-    fakeOldPrice > 0
-      ? Math.max(
-          10,
-          Math.min(
-            50,
-            Math.round(((fakeOldPrice - price) / fakeOldPrice) * 100)
-          )
+ const price = Number(p.price || 0);
+const originalPrice = Number(p.originalPrice || 0);
+
+// 🔥 If originalPrice exists → real discount
+// 🔥 else → fallback to old fake logic
+
+const finalOldPrice =
+  originalPrice > 0 ? originalPrice : Math.round(price * 1.45);
+
+const discount =
+  originalPrice > 0
+    ? Math.round(((originalPrice - price) / originalPrice) * 100)
+    : Math.max(
+        10,
+        Math.min(
+          50,
+          Math.round(((finalOldPrice - price) / finalOldPrice) * 100)
         )
-      : 10;
+      );
 
   const normalizedImageUrl =
-    p.imageUrl ||
-    p.imageBase64 ||
-    p.imageUrls?.[0] ||
-    p.mediaFiles?.find((item) => item.type === "image")?.url ||
-    "";
+  p.imageUrl ||
+  (p as any).image || // 🔥 fallback
+  p.imageBase64 ||
+  p.imageUrls?.[0] ||
+  p.mediaFiles?.find((item) => item.type === "image")?.url ||
+  "/no-image.png";
 
   return (
     <div
@@ -612,14 +659,40 @@ const filteredProducts = useMemo(() => {
       className="group overflow-hidden rounded-[28px] border border-white/10 bg-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
     >
       <div className="relative z-0">
-        <ProductMediaSlider
-          productName={p.name}
-          imageUrl={p.imageUrl}
-          imageUrls={p.imageUrls || []}
-          videoUrls={p.videoUrls || []}
-          mediaFiles={p.mediaFiles || []}
-        />
-      </div>
+  {/* ❤️ Wishlist Button */}
+  <button
+    onClick={() => toggleWishlist(p)}
+    className="absolute right-3 top-3 z-20 rounded-full bg-white/80 p-2 backdrop-blur hover:scale-110 transition"
+  >
+    {wishlist.includes(p.id) ? "❤️" : "🤍"}
+  </button>
+
+  <ProductMediaSlider
+    productName={p.name}
+    imageUrl={
+      p.imageUrl ||
+      p.imageBase64 ||
+      p.imageUrls?.[0] ||
+      p.mediaFiles?.find((item) => item.type === "image")?.url ||
+      ""
+    }
+    imageUrls={
+      p.imageUrls?.length
+        ? p.imageUrls
+        : p.mediaFiles
+            ?.filter((item) => item.type === "image")
+            .map((item) => item.url) || []
+    }
+    videoUrls={
+      p.videoUrls?.length
+        ? p.videoUrls
+        : p.mediaFiles
+            ?.filter((item) => item.type === "video")
+            .map((item) => item.url) || []
+    }
+    mediaFiles={p.mediaFiles || []}
+  />
+</div>
 
       <div className="relative z-10 p-5">
         <h4 className="min-h-[64px] text-[20px] font-semibold leading-snug text-white">
@@ -630,9 +703,9 @@ const filteredProducts = useMemo(() => {
           <p className="text-2xl font-bold text-[#ffd27a]">
             ₹{price}
           </p>
-          <p className="pb-1 text-base text-white/35 line-through">
-            ₹{fakeOldPrice}
-          </p>
+         <p className="pb-1 text-base text-white/35 line-through">
+  ₹{finalOldPrice}
+</p>
         </div>
 
         <div className="mt-2">
@@ -672,16 +745,19 @@ const filteredProducts = useMemo(() => {
           </Link>
 
           <button
-            type="button"
-            onClick={() =>
-              addToCart({
-                id: p.id,
-                name: p.name || "Products",
-                price: price,
-                category: p.category || "",
-                imageUrl: normalizedImageUrl || "",
-              })
-            }
+  type="button"
+  onClick={() => {
+    addToCart({
+      id: p.id,
+      name: p.name || "Product",
+      price: price,
+      category: p.category || "Uncategorized",
+      imageUrl: p.imageUrl || "",
+    });
+
+    alert("Item added to cart ✅");
+  }}
+
             disabled={!p.inStock}
             className="rounded-full bg-gradient-to-r from-[#d4a848] to-[#f2c76b] px-5 py-3 text-sm font-semibold text-[#2b1208] transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-white/70"
           >

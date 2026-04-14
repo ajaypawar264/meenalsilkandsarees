@@ -10,6 +10,7 @@ import { db } from "@/lib/firebase";
 import { addToCart } from "@/lib/cart";
 import Header from "@/app/components/Header";
 import ProductMediaSlider from "@/app/components/ProductMediaSlider";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 type ProductMediaItem = {
   url: string;
@@ -17,7 +18,13 @@ type ProductMediaItem = {
   fileType?: string;
   thumbnailUrl?: string;
 };
-
+type ColorVariant = {
+  color: string;
+  imageUrl: string;
+  price?: number;
+  stock?: number;
+  mediaFiles?: ProductMediaItem[]; // 👈 ADD THIS
+};
 type Product = {
   id: string;
   name: string;
@@ -31,6 +38,7 @@ type Product = {
   videoUrls?: string[];
   mediaFiles?: ProductMediaItem[];
   description?: string;
+    colors?: ColorVariant[];
 };
 
 export default function ProductDetailsPage() {
@@ -41,7 +49,7 @@ export default function ProductDetailsPage() {
     const id = params?.id;
     return Array.isArray(id) ? id[0] : (id as string | undefined);
   }, [params]);
-
+const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +60,7 @@ export default function ProductDetailsPage() {
           setLoading(false);
           return;
         }
+     
 
         const productRef = doc(db, "products", productId);
         const snap = await getDoc(productRef);
@@ -61,7 +70,7 @@ export default function ProductDetailsPage() {
           return;
         }
 
-        const data = snap.data() as Omit<Product, "id">;
+        const data = snap.data() as any;
 
         setProduct({
           id: snap.id,
@@ -75,6 +84,21 @@ export default function ProductDetailsPage() {
           imageUrls: data.imageUrls || [],
           videoUrls: data.videoUrls || [],
           mediaFiles: data.mediaFiles || [],
+         colors: data.colors?.length
+  ? data.colors.map((c: any) => ({
+      color: c.color,
+      imageUrl: c.imageUrl,
+      price: c.price,
+      stock: c.stock,
+      mediaFiles: c.mediaFiles || [],
+    }))
+  : data.color
+  ? data.color.split("/").map((clr: string) => ({
+      color: clr,
+      imageUrl: data.imageUrl || "",
+      mediaFiles: data.mediaFiles || [],
+    }))
+  : [],
           description: data.description || "",
         });
       } catch (error) {
@@ -87,6 +111,18 @@ export default function ProductDetailsPage() {
 
     fetchProduct();
   }, [productId]);
+  useEffect(() => {
+  if (product?.colors?.length) {
+    setSelectedColor(product.colors[0]);
+  }
+}, [product]);
+useEffect(() => {
+  console.log("Selected color changed:", selectedColor);
+}, [selectedColor]);
+useEffect(() => {
+  console.log("FULL PRODUCT 👉", product);
+  console.log("COLORS 👉", product?.colors);
+}, [product]);
 
   const normalizedImageUrl = useMemo(() => {
     const firstImageFromMedia =
@@ -164,13 +200,22 @@ export default function ProductDetailsPage() {
 
         <div className="grid gap-8 md:grid-cols-2">
           <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/10 shadow-xl">
-            <ProductMediaSlider
-              productName={product.name}
-              imageUrl={product.imageUrl}
-              imageUrls={product.imageUrls || []}
-              videoUrls={product.videoUrls || []}
-              mediaFiles={product.mediaFiles || []}
-            />
+        <ProductMediaSlider
+ key={selectedColor?.color || "default"}
+  productName={product.name}
+  imageUrl={
+  selectedColor?.imageUrl ||
+  product.colors?.[0]?.imageUrl ||
+  ""
+}
+  imageUrls={[]}
+  videoUrls={[]}
+  mediaFiles={
+  selectedColor?.mediaFiles && selectedColor.mediaFiles.length > 0
+    ? selectedColor.mediaFiles
+    : product.mediaFiles || []
+}
+/>
           </div>
 
           <div className="rounded-[28px] border border-white/10 bg-white/10 p-6 shadow-xl backdrop-blur-xl">
@@ -192,8 +237,9 @@ export default function ProductDetailsPage() {
 
             <div className="mt-4 flex items-end gap-3">
               <p className="text-3xl font-bold text-[#ffd27a]">
-                ₹{product.price}
+               ₹{selectedColor?.price || product.price}
               </p>
+              
               <p className="text-lg text-white/35 line-through">
                 ₹{fakeOldPrice}
               </p>
@@ -201,6 +247,32 @@ export default function ProductDetailsPage() {
                 {discount}% OFF
               </span>
             </div>
+            {(product.colors?.length ?? 0) > 0 ? (
+  <div className="mt-6">
+    <h3 className="mb-2 text-sm font-semibold text-white/80">
+      Select ColorSelect Color ({product.colors?.length})
+    </h3>
+
+    <div className="flex flex-wrap gap-3">
+     {(product.colors || []).map((c: ColorVariant, i: number) => (
+        <div
+          key={i}
+          title={c.color}
+          onClick={() => setSelectedColor(c)}
+          className={`px-3 py-1 text-xs rounded-full cursor-pointer border ${
+            selectedColor?.color === c.color
+              ? "bg-white text-black"
+              : "bg-white/10 text-white"
+          }`}
+        >
+          {c.color}
+        </div>
+      ))}
+    </div>
+  </div>
+) : (
+  <p className="mt-4 text-red-400">No colors available</p>
+)}
 
             <div className="mt-5">
               <p
@@ -208,9 +280,13 @@ export default function ProductDetailsPage() {
                   product.inStock ? "text-green-400" : "text-red-400"
                 }`}
               >
-                {product.inStock
-                  ? `In Stock (${product.stock ?? 0})`
-                  : "Out of stock"}
+               <span
+  className={`font-medium ${
+    product.inStock ? "text-green-600" : "text-red-500"
+  }`}
+>
+  {product.inStock ? "In Stock" : "Out of stock"}
+</span>
               </p>
             </div>
 
@@ -225,15 +301,17 @@ export default function ProductDetailsPage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <button
                 type="button"
-                onClick={() =>
-                  addToCart({
-                    id: product.id,
-                    name: product.name,
-                    price: product.price,
-                    category: product.category || "Uncategorized",
-                    imageUrl: normalizedImageUrl || "",
-                  })
-                }
+                onClick={() => {
+  addToCart({
+    id: product.id,
+    name: product.name,
+    price: selectedColor?.price || product.price,
+    category: product.category || "Uncategorized",
+    imageUrl: normalizedImageUrl || "",
+  });
+
+  alert("Item added to cart ✅");
+}}
                 disabled={!product.inStock}
                 className="rounded-2xl bg-gradient-to-r from-[#b88639] to-[#e2b45b] px-6 py-3 font-semibold text-[#2b1208] transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-white/70"
               >

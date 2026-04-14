@@ -1,5 +1,6 @@
 "use client";
-
+import {  query, where, getDocs } from "firebase/firestore";
+import { getNextOrderId, getNextInvoiceNo } from "@/lib/counters";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -95,18 +96,19 @@ export default function CartPage() {
     window.dispatchEvent(new Event("cart_updated"));
   };
 
-  const generateInvoiceNumber = () => {
-    const random = Math.floor(1000 + Math.random() * 9000);
-    return `MS-${Date.now()}-${random}`;
-  };
-
+ 
   const saveOrderToFirestore = async (
+    
     cleanName: string,
     cleanPhone: string,
     cleanAddress: string,
     paymentType: "COD" | "ONLINE",
     paymentStatus: "Pending" | "Pending Verification" | "Paid"
+    
   ) => {
+    
+   
+
     const orderItems: OrderItemPayload[] = selectedItems.map((item) => ({
       id: item.id,
       name: item.name,
@@ -115,63 +117,64 @@ export default function CartPage() {
       imageUrl: item.imageUrl || "",
     }));
 
-    const invoiceNumber = generateInvoiceNumber();
-
+    const invoiceNo = await getNextInvoiceNo();
+const orderId = await getNextOrderId();
     const docRef = await addDoc(collection(db, "orders"), {
-      customerName: cleanName,
-      phone: cleanPhone,
-      address: cleanAddress,
-      items: orderItems,
+  orderId,
+  customerName: cleanName,
+  phone: cleanPhone,
+  address: cleanAddress,
+  items: orderItems,
 
-      paymentMethod: paymentType,
-      paymentStatus: paymentStatus,
-      paymentScreenshot: "",
+  paymentMethod: paymentType,
+  paymentStatus: paymentStatus,
+  paymentScreenshot: "",
 
-      status: "Pending",
+  status: "Pending",
 
-      totalAmount: grandTotal,
-      subTotal,
-      gstRate: GST_RATE,
-      gstAmount,
-      cgstAmount,
-      sgstAmount,
+  totalAmount: grandTotal,
+  subTotal,
+  gstRate: GST_RATE,
+  gstAmount,
+  cgstAmount,
+  sgstAmount,
 
-      invoiceNumber,
-      billGenerated: true,
-      billGeneratedAt: serverTimestamp(),
+   invoiceNo, 
+  billGenerated: true,
+  billGeneratedAt: serverTimestamp(),
 
-      shopDetails: SHOP_DETAILS,
-      createdAt: serverTimestamp(),
-    });
+  shopDetails: SHOP_DETAILS,
+  createdAt: serverTimestamp(),
+});
 
-    return docRef;
-  };
+return { docRef, orderId };
+};
 
  
 
 
 
   const handleOnlinePayment = async (
-          cleanName: string,
-           cleanPhone: string,
-          cleanAddress: string
-                   ) => {
-         const docRef = await saveOrderToFirestore(
-              cleanName,
-               cleanPhone,
-      cleanAddress,
-                 "ONLINE",
-      "Pending"
-    );
+  cleanName: string,
+  cleanPhone: string,
+  cleanAddress: string
+) => {
+  const result = await saveOrderToFirestore(
+    cleanName,
+    cleanPhone,
+    cleanAddress,
+    "ONLINE",
+    "Pending"
+  );
 
-    clearOrderedItemsFromCart();
-    setAddress("");
-    setMessage("Order created. Redirecting to payment page...");
+  clearOrderedItemsFromCart();
+  setAddress("");
+  setMessage("Order created. Redirecting to payment page...");
 
-    router.push(`/payment/${docRef.id}`);
-  };
+  router.push(`/payment/${result.docRef.id}`);
+};
 
- const handleOrder = async () => {
+const handleOrder = async () => {
   const cleanName = name.trim();
   const cleanPhone = phone.trim();
   const cleanAddress = address.trim();
@@ -200,7 +203,7 @@ export default function CartPage() {
     setPlacing(true);
     setMessage("");
 
-    const docRef = await saveOrderToFirestore(
+    const result = await saveOrderToFirestore(
       cleanName,
       cleanPhone,
       cleanAddress,
@@ -213,7 +216,7 @@ export default function CartPage() {
     setAddress("");
     setMessage("Order created. Redirecting to payment page...");
 
-    router.push(`/payment/${docRef.id}`);
+    router.push(`/payment/${result.docRef.id}`);
 
   } catch (error: any) {
     console.error("Order error:", error);

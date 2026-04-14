@@ -1,12 +1,16 @@
 "use client";
 import { updateDoc, doc, addDoc } from "firebase/firestore";
-
+import { setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   collection,
   getDocs,
   serverTimestamp,
 } from "firebase/firestore";
+async function getNextProductNumber() {
+  const snapshot = await getDocs(collection(db, "products"));
+  return snapshot.size + 1;
+}
 import { db } from "@/lib/firebase";
 import {
   uploadFileToImageKit,
@@ -23,6 +27,7 @@ type ProductForm = {
   newCategory: string;
   description: string;
   inStock: boolean;
+   originalPrice: string; // 🔥 ADD
 };
 
 export default function AddProductsPage() {
@@ -45,6 +50,7 @@ export default function AddProductsPage() {
     subCategory: "",
     newSubCategory: "",
     newCategory: "",
+      originalPrice: "", // 🔥 ADD
     inStock: true,
   });
 
@@ -105,86 +111,69 @@ export default function AddProductsPage() {
     refreshCategories();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+ 
 
-    if (!productForm.name || !productForm.price) {
-      alert("Name ani price required ahe");
+      // COLOR PRODUCTS
+      const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!productForm.name || !productForm.price) {
+    alert("Name ani price required ahe");
+    return;
+  }
+
+  try {
+    setAddingProduct(true);
+
+    let finalCategory = productForm.category;
+    let finalSubCategory = productForm.subCategory;
+
+    // ... (category + subcategory logic same thev)
+
+    // ✅ Build colors array
+    const colorsData = colorInputs
+      .filter((item) => item.color && item.media.length > 0)
+      .map((item) => ({
+        color: item.color,
+        imageUrl: item.media[0]?.url || "",
+        mediaFiles: item.media,
+      }));
+
+    // 🔥 👉 HE ITHE TAK
+    if (colorsData.length === 0) {
+      alert("At least one color with image required");
       return;
     }
 
-    try {
-      setAddingProduct(true);
+    // ✅ Save SINGLE product
+   // 🔥 number generate kar
+const productNumber = await getNextProductNumber();
 
-      let finalCategory = productForm.category;
-      let finalSubCategory = productForm.subCategory;
 
-      // CATEGORY
-      if (productForm.category === "Other") {
-        if (!productForm.newCategory) {
-          alert("Enter new category");
-          return;
-        }
 
-        finalCategory = productForm.newCategory;
+// 👉 custom ID banav
+const customId = `product-${productNumber}`;
 
-        await addDoc(collection(db, "categories"), {
-          name: productForm.newCategory,
-          subCategories: [],
-        });
+// 👉 setDoc use kar
+await setDoc(doc(db, "products", customId), {
+  productNumber: productNumber,
+  name: productForm.name,
+  category: finalCategory,
+  subCategory: finalSubCategory,
+  price: Number(productForm.price),
+  stock: Number(productForm.stock || 0),
+  description:
+    productForm.description ||
+    "Premium quality product from our store",
+  inStock: productForm.inStock,
+  colors: colorsData,
+  createdAt: serverTimestamp(),
+    originalPrice: Number(productForm.originalPrice || productForm.price), // 🔥 ADD
+});
 
-        await refreshCategories();
-      }
+    alert("Products added successfully ✅");
 
-      // SUBCATEGORY
-      if (productForm.subCategory === "Other") {
-        if (!productForm.newSubCategory) {
-          alert("Enter new subcategory");
-          return;
-        }
-
-        finalSubCategory = productForm.newSubCategory;
-
-        const selectedCat = categories.find(
-          (cat) => cat.name === finalCategory
-        );
-
-        if (selectedCat) {
-          const categoryRef = doc(db, "categories", selectedCat.id);
-
-          await updateDoc(categoryRef, {
-            subCategories: [
-              ...(selectedCat.subCategories || []),
-              productForm.newSubCategory,
-            ],
-          });
-
-          // 🔥 IMPORTANT: refresh after update
-          await refreshCategories();
-        }
-      }
-
-      // COLOR PRODUCTS
-      for (const item of colorInputs) {
-        if (!item.color) continue;
-
-        await addDoc(collection(db, "products"), {
-          name: productForm.name,
-          category: finalCategory,
-          subCategory: finalSubCategory,
-          color: item.color,
-          mediaFiles: item.media,
-          price: Number(productForm.price),
-          stock: Number(productForm.stock || 0),
-          description:
-            productForm.description ||
-            "Premium quality product from our store",
-          inStock: productForm.inStock,
-          createdAt: serverTimestamp(),
-        });
-      }
-
-      alert("Products added successfully ✅");
+      
 
       setProductForm({
         name: "",
@@ -196,6 +185,7 @@ export default function AddProductsPage() {
         newCategory: "",
         newSubCategory: "",
         inStock: true,
+          originalPrice: "", // 🔥 ADD
       });
 
       setColorInputs([{ color: "", media: [] }]);
@@ -235,7 +225,13 @@ export default function AddProductsPage() {
             onChange={(e) => handleChange("name", e.target.value)}
             className="p-3 rounded bg-black/30"
           />
-
+<input
+  type="number"
+  placeholder="Original Price (MRP)"
+  value={productForm.originalPrice}
+  onChange={(e) => handleChange("originalPrice", e.target.value)}
+  className="p-3 rounded bg-black/30"
+/>
           <input
             type="number"
             placeholder="Price"
@@ -243,6 +239,17 @@ export default function AddProductsPage() {
             onChange={(e) => handleChange("price", e.target.value)}
             className="p-3 rounded bg-black/30"
           />
+          {productForm.originalPrice && productForm.price && (
+  <p className="text-green-400 font-semibold">
+    Discount:{" "}
+    {Math.round(
+      ((Number(productForm.originalPrice) - Number(productForm.price)) /
+        Number(productForm.originalPrice)) *
+        100
+    )}
+    %
+  </p>
+)}
 
           <input
             type="number"
@@ -368,4 +375,4 @@ export default function AddProductsPage() {
       )}
     </main>
   );
-}
+    }

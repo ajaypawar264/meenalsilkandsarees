@@ -31,6 +31,9 @@ type PaymentStatus =
 
 type Order = {
   id: string;
+  orderId?: string;
+  invoiceNo?: string;
+ 
   customerName: string;
   phone: string;
   address: string;
@@ -264,7 +267,7 @@ export default function AdminOrdersPage() {
         <hr />
 
         <h3>Invoice</h3>
-        <p><strong>Order ID:</strong> ${order.orderNumber || order.id}</p>
+        <p><strong>Order ID:</strong> ${order.orderId}</p>
         <p><strong>Name:</strong> ${order.customerName}</p>
         <p><strong>Phone:</strong> ${order.phone}</p>
         <p><strong>Address:</strong> ${order.address}</p>
@@ -399,6 +402,7 @@ export default function AdminOrdersPage() {
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
           <div className="no-print overflow-hidden rounded-2xl border border-[#ead7d7] bg-white shadow-sm">
             <div className="overflow-auto">
+              <table className="w-full min-w-[980px]"></table>
               <table className="w-full min-w-[980px]">
                 <thead className="bg-[#fff0f3]">
                   <tr className="text-left">
@@ -433,7 +437,7 @@ export default function AdminOrdersPage() {
   className="border-t border-[#f1dfdf] align-top relative z-0"
 >
                         <td className="p-4 font-medium">
-                          {order.orderNumber || order.id}
+                         {order.orderId || order.id}
                         </td>
                         <td className="p-4">{order.customerName}</td>
                         <td className="p-4">{order.phone}</td>
@@ -557,7 +561,7 @@ export default function AdminOrdersPage() {
                 <div className="rounded-xl border border-[#f0dadd] bg-[#fff8fb] p-4">
                   <p>
                     <span className="font-semibold">Order ID:</span>{" "}
-                    {selectedOrder.orderNumber || selectedOrder.id}
+                   {selectedOrder.orderId || selectedOrder.id}
                   </p>
                   <p>
                     <span className="font-semibold">Customer:</span>{" "}
@@ -731,9 +735,9 @@ export default function AdminOrdersPage() {
                             <h3 className="text-2xl font-bold">TAX INVOICE</h3>
                             <p>
                               Invoice No: INV-
-                              {(billOrder.orderNumber || billOrder.id.slice(0, 8)).toUpperCase()}
+                              Invoice No: {billOrder.invoiceNo}
                             </p>
-                            <p>Order ID: {billOrder.orderNumber || billOrder.id}</p>
+                            <p>Order ID: {billOrder.orderId}</p>
                             <p>Date: {getOrderDate(billOrder.createdAt)}</p>
                             <p>Status: {billOrder.status}</p>
                           </div>

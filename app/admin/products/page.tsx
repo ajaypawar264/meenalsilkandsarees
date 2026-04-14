@@ -29,11 +29,28 @@ type Product = {
 };
 
 export default function AdminProductsPage() {
+  const [search, setSearch] = useState("");
+const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [imageFileMap, setImageFileMap] = useState<Record<string, File>>({});
   const [previewMap, setPreviewMap] = useState<Record<string, string>>({});
+  const filteredProducts = products.filter((p) => {
+  const name = p.name?.toLowerCase() || "";
+  const matchSearch = name.includes(search.toLowerCase());
+
+  const isInStock = (p.stock ?? 0) > 0;
+
+  const matchStock =
+    stockTab === "all"
+      ? true
+      : stockTab === "in"
+      ? isInStock
+      : !isInStock;
+
+  return matchSearch && matchStock;
+});
 
   const fetchProducts = async () => {
     try {
@@ -231,6 +248,53 @@ export default function AdminProductsPage() {
             </Link>
           </div>
         </div>
+        <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
+  {/* SEARCH */}
+  <input
+    type="text"
+    placeholder="Search product..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    className="w-full md:w-[300px] rounded-xl border border-white/20 bg-black px-4 py-2 text-white"
+  />
+
+  {/* STOCK FILTER TABS */}
+  <div className="flex gap-2">
+    <button
+      onClick={() => setStockTab("all")}
+      className={`px-4 py-2 rounded-xl ${
+        stockTab === "all"
+          ? "bg-yellow-500 text-black"
+          : "bg-white/10"
+      }`}
+    >
+      All
+    </button>
+
+    <button
+      onClick={() => setStockTab("in")}
+      className={`px-4 py-2 rounded-xl ${
+        stockTab === "in"
+          ? "bg-green-500 text-black"
+          : "bg-white/10"
+      }`}
+    >
+      In Stock
+    </button>
+
+    <button
+      onClick={() => setStockTab("out")}
+      className={`px-4 py-2 rounded-xl ${
+        stockTab === "out"
+          ? "bg-red-500 text-black"
+          : "bg-white/10"
+      }`}
+    >
+      Out of Stock
+    </button>
+  </div>
+</div>
 
         {loading ? (
           <p className="text-white/70">Loading products...</p>
@@ -238,9 +302,10 @@ export default function AdminProductsPage() {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             No products found
           </div>
-        ) : (
+        ) :
+         (
           <div className="space-y-4">
-            {products.map((product) => {
+           {filteredProducts.map((product) => {
               const previewImage =
                 previewMap[product.id] ||
                 product.mediaFiles?.[0]?.url ||

@@ -19,6 +19,60 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  
+  const [wishlistCount, setWishlistCount] = useState(0);
+  const [items, setItems] = useState<any[]>([]);
+  useEffect(() => {
+  const stored = localStorage.getItem("wishlist");
+
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+
+      // 🔥 ensure array ahe
+      if (Array.isArray(parsed)) {
+        setItems(parsed);
+      } else {
+        setItems([]);
+      }
+    } catch (err) {
+      console.error("Wishlist parse error:", err);
+      setItems([]);
+    }
+  } else {
+    setItems([]);
+  }
+}, []);
+useEffect(() => {
+  const updateWishlist = () => {
+    const stored = localStorage.getItem("wishlist");
+
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+
+        if (Array.isArray(parsed)) {
+          setWishlistCount(parsed.length);
+        } else {
+          setWishlistCount(0);
+        }
+      } catch (err) {
+        console.error("Wishlist parse error:", err);
+        setWishlistCount(0);
+      }
+    } else {
+      setWishlistCount(0);
+    }
+  };
+
+  updateWishlist();
+
+  window.addEventListener("wishlistUpdated", updateWishlist);
+
+  return () => {
+    window.removeEventListener("wishlistUpdated", updateWishlist);
+  };
+}, []);
 
   useEffect(() => {
     const syncData = () => {
@@ -184,7 +238,12 @@ export default function Header() {
             >
               About
             </Link>
-
+<Link
+  href="/daily-offer"
+  className="px-4 py-2 rounded-full bg-gradient-to-r from-[#b88639] to-[#f2c76b] text-black font-semibold hover:brightness-110"
+>
+  Daily Offer 🔥
+</Link>
             <Link
               href="/contact"
               className="text-[17px] font-medium text-slate-700 transition hover:text-[#233f99]"
@@ -195,14 +254,18 @@ export default function Header() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              className="hidden h-11 w-11 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-[#233f99] sm:flex"
-              aria-label="Wishlist"
-            >
-              <Heart size={24} />
-            </button>
+            <Link
+  href="/wishlist"
+  className="relative hidden h-11 w-11 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-[#233f99] sm:flex"
+>
+  <Heart size={24} />
 
+  {wishlistCount > 0 && (
+    <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+      {wishlistCount}
+    </span>
+  )}
+</Link>
             <Link
               href="/cart"
               className="relative hidden h-11 w-11 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-[#233f99] sm:flex"

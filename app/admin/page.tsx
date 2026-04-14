@@ -674,6 +674,21 @@ className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white ho
             </h2>
   
 </Link>
+<Link
+  href="/admin/hero"
+  className="rounded-3xl border border-pink-500/20 bg-pink-500/10 p-6 shadow-lg transition hover:-translate-y-1 hover:bg-pink-500/20"
+>
+   <p className="text-sm uppercase tracking-[0.2em] text-pink-300">
+             Hero
+            </p>
+            <h2 className="mt-4 text-2xl font-bold text-white">
+             Home page Photo
+            </h2>
+            <p className="mt-2 text-sm text-white/60">
+              Edit Hero section
+            </p>
+  Edit Hero
+</Link>
           <Link
             href="/admin/reviews"
             className="rounded-3xl border border-pink-500/20 bg-pink-500/10 p-6 shadow-lg transition hover:-translate-y-1 hover:bg-pink-500/20"

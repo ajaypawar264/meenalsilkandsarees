@@ -4,15 +4,31 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, updateDoc, increment, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useEffect } from "react";
+
+
 
 export default function PaymentPage() {
   const params = useParams();
+  const [orderData, setOrderData] = useState<any>(null);
   const router = useRouter();
-  const orderId = params.orderId as string;
+  const orderId = params?.orderId as string;
 
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  useEffect(() => {
+  const fetchOrder = async () => {
+    const orderRef = doc(db, "orders", orderId);
+    const snap = await getDoc(orderRef);
+
+    if (snap.exists()) {
+      setOrderData(snap.data());
+    }
+  };
+
+  fetchOrder();
+}, [orderId]);
 
   // ✅ Upload to ImageKit API
   const uploadToImageKit = async (file: File) => {
@@ -66,39 +82,21 @@ export default function PaymentPage() {
     const orderSnap = await getDoc(orderRef);
     const orderData: any = orderSnap.data();
 
-    console.log("ORDER DATA:", orderData); // 🔍 debug
+    console.log("ORDER DATA:", orderData);
 
-    // ✅ Step 4: STOCK UPDATE (SAFE VERSION)
-
-    // Multiple items (cart)
+    // ✅ Step 4: STOCK UPDATE (FINAL)
     if (orderData?.items && Array.isArray(orderData.items)) {
       await Promise.all(
         orderData.items.map(async (item: any) => {
-          if (!item?.productId) return;
+          if (!item?.id) return;
 
-          const productRef = doc(db, "products", item.productId);
+          const productRef = doc(db, "products", item.id);
 
           await updateDoc(productRef, {
             stock: increment(-Number(item.quantity || 1)),
           });
         })
       );
-    }
-
-    // Single product fallback
-    if (orderData?.items && Array.isArray(orderData.items)) {
-  await Promise.all(
-    orderData.items.map(async (item: any) => {
-      if (!item?.id) return;
-
-      const productRef = doc(db, "products", item.id);
-
-      await updateDoc(productRef, {
-        stock: increment(-Number(item.quantity || 1)),
-      });
-    })
-  );
-
     } else {
       console.warn("No product data found in order");
     }
@@ -117,6 +115,7 @@ export default function PaymentPage() {
   }
 };
 
+
   return (
     <div className="min-h-screen bg-black text-white px-4 py-10">
       <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/5 p-6">
@@ -125,9 +124,13 @@ export default function PaymentPage() {
           UPI Payment
         </h1>
 
-        <p className="mt-3 text-center text-sm text-white/70">
-          Order ID: {orderId}
-        </p>
+       <p className="mt-3 text-center text-sm text-white/70">
+  Order ID: {orderData?.orderId}
+</p>
+
+<p className="text-center text-sm text-white/70">
+  Invoice: {orderData?.invoiceNo}
+</p>
 
         <div className="mt-6 flex justify-center">
           <img
@@ -142,7 +145,7 @@ export default function PaymentPage() {
         </p>
 
         <p className="mt-2 text-center text-sm text-white/60">
-          Payment केल्यावर screenshot upload करा
+          Payment केल्यावर screenshot upload करा || If you make the payment after 10 PM, it will be verified the next day at 10 AM.
         </p>
 
         <input

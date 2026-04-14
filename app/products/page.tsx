@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 import ProductMediaSlider from "@/app/components/ProductMediaSlider";
-
+import { addToWishlist, removeFromWishlist } from "@/lib/wishlist";
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
@@ -11,6 +11,27 @@ import Header from "../components/Header";
 import { addToCart } from "@/lib/cart";
 import { Heart, ShoppingCart, Zap, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+
+export default function ProductsPage() {
+  const [wishlist, setWishlist] = useState<string[]>([]);
+
+  
+
+useEffect(() => {
+  const update = () => {
+    const stored = localStorage.getItem("wishlist");
+    setWishlist(stored ? JSON.parse(stored) : []);
+  };
+
+  update();
+
+  window.addEventListener("wishlistUpdated", update);
+
+  return () => {
+    window.removeEventListener("wishlistUpdated", update);
+  };
+}, []);
+
 
 type Product = {
   id: string;
@@ -39,6 +60,36 @@ function ProductsContent() {
   const [appliedMaxPrice, setAppliedMaxPrice] = useState(50000);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [stockFilter, setStockFilter] = useState<"all" | "inStock" | "outOfStock">("all");
+  
+  const toggleWishlist = (product: Product) => {
+  const stored = localStorage.getItem("wishlist");
+  let wishlist = stored ? JSON.parse(stored) : [];
+
+  const exists = wishlist.find((item: any) => item.id === product.id);
+
+  if (exists) {
+    wishlist = wishlist.filter((item: any) => item.id !== product.id);
+  } else {
+    wishlist.push({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl:
+        product.imageUrl ||
+        product.imageUrls?.[0] ||
+        product.mediaFiles?.find((m) => m.type === "image")?.url ||
+        "",
+    });
+  }
+
+  localStorage.setItem("wishlist", JSON.stringify(wishlist));
+
+  // 🔥 update state
+  setWishlist(wishlist.map((item: any) => item.id));
+
+  // 🔥 header update event
+  window.dispatchEvent(new Event("wishlistUpdated"));
+};
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -48,32 +99,35 @@ function ProductsContent() {
         const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
         const snapshot = await getDocs(q);
 
-        const items: Product[] = snapshot.docs.map((docItem) => {
-          const data = docItem.data() as Partial<Product>;
+       const items: Product[] = snapshot.docs.map((docItem) => {
+  const data = docItem.data() as any;
 
-          const stockValue = Number(data.stock ?? 0);
-          const priceValue = Number(data.price ?? 0);
+  const stockValue = Number(data.stock ?? 0);
+  const priceValue = Number(data.price ?? 0);
 
-          return {
-  id: docItem.id,
-  name: data.name || "Unnamed Product",
-  color: data.color || "",
-  price: Number.isFinite(priceValue) ? priceValue : 0,
-  stock: Number.isFinite(stockValue) ? stockValue : 0,
-  category: data.category || "Uncategorized",
-  inStock:
-    typeof data.inStock === "boolean"
-      ? data.inStock
-      : stockValue > 0,
+  const mainImage =
+    data.colors?.[0]?.imageUrl || "";
 
-  imageUrl: data.imageUrl || "",
+  return {
+    id: docItem.id,
+    name: data.name || "Unnamed Product",
+    color: data.color || "",
+    price: Number.isFinite(priceValue) ? priceValue : 0,
+    stock: Number.isFinite(stockValue) ? stockValue : 0,
+    category: data.category || "Uncategorized",
+    inStock:
+      typeof data.inStock === "boolean"
+        ? data.inStock
+        : stockValue > 0,
 
-  // 🔥 IMPORTANT
-  imageUrls: data.imageUrls || [],
-  videoUrls: data.videoUrls || [],
-  mediaFiles: data.mediaFiles || [],
-};
-        });
+    // 🔥 IMAGE FIX HERE
+    imageUrl: mainImage,
+
+    imageUrls: data.imageUrls || [],
+    videoUrls: data.videoUrls || [],
+    mediaFiles: data.mediaFiles || [],
+  };
+});
 
         setProducts(items);
       } catch (error) {
@@ -197,6 +251,7 @@ function ProductsContent() {
 
   return (
     <main className="min-h-screen bg-[#f7f7f9] text-slate-900">
+      
       <Header />
 
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-6">
@@ -402,7 +457,12 @@ function ProductsContent() {
                         <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 transition duration-300 group-hover:opacity-100">
                           <div className="flex items-center gap-3">
                            
-
+ <button
+    onClick={() => toggleWishlist(p)}
+    className="absolute right-3 top-3 z-20 rounded-full bg-white/80 p-2 backdrop-blur hover:scale-110 transition"
+  >
+    {wishlist.includes(p.id) ? "❤️" : "🤍"}
+  </button>
                             <button
                               type="button"
                               onClick={() =>
@@ -502,7 +562,7 @@ function ProductsContent() {
 }
 
 
-export default function ProductsPage() {
+
   return (
     <Suspense
       fallback={
