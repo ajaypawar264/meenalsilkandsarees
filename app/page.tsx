@@ -839,11 +839,15 @@ const discount =
             Cart
           </Link>
         </p>
-        <p>
-          <Link href="/my-orders" className="hover:text-[#f3c46b]">
-            My Orders
-          </Link>
-        </p>
+     <div className="flex gap-3">
+  <Link href="/orders" className="rounded bg-[#7a2848] px-4 py-2 text-white">
+    My Orders
+  </Link>
+
+  <Link href="/wallet" className="rounded bg-green-600 px-4 py-2 text-white">
+    Wallet
+  </Link>
+</div>
         <p>
           <Link href="/login" className="hover:text-[#f3c46b]">
             Login

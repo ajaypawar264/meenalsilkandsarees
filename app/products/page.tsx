@@ -12,6 +12,7 @@ import { addToCart } from "@/lib/cart";
 import { Heart, ShoppingCart, Zap, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+
 export default function ProductsPage() {
   const [wishlist, setWishlist] = useState<string[]>([]);
 
@@ -472,7 +473,9 @@ function ProductsContent() {
                                   price: productPrice,
                                   category: p.category || "Uncategorized",
                                   imageUrl: p.imageUrl || "",
+                                  
                                 })
+                                
                               }
                              disabled={(p.stock ?? 0) <= 0}
                               className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-700 shadow-md transition hover:scale-105 hover:text-[#233f99] disabled:cursor-not-allowed disabled:opacity-50"

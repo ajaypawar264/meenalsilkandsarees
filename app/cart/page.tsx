@@ -1,4 +1,11 @@
 "use client";
+import {
+ 
+  doc,
+  getDoc,
+  updateDoc,
+  increment,
+} from "firebase/firestore";
 import {  query, where, getDocs } from "firebase/firestore";
 import { getNextOrderId, getNextInvoiceNo } from "@/lib/counters";
 import { useRouter } from "next/navigation";
@@ -37,6 +44,10 @@ type OrderItemPayload = {
 };
 
 export default function CartPage() {
+  const [useWallet, setUseWallet] = useState(false);
+const [walletBalance, setWalletBalance] = useState(0);
+
+const userId = "USER_ID_HERE"; // 🔴 login user id
   const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -54,6 +65,18 @@ export default function CartPage() {
       prev.filter((id) => cart.some((item) => item.id === id))
     );
   };
+  useEffect(() => {
+  const fetchWallet = async () => {
+    const docRef = doc(db, "users", userId);
+    const snap = await getDoc(docRef);
+
+    if (snap.exists()) {
+      setWalletBalance(snap.data().walletBalance || 0);
+    }
+  };
+
+  fetchWallet();
+}, []);
 
   useEffect(() => {
     refreshCart();
@@ -87,6 +110,11 @@ export default function CartPage() {
   const cgstAmount = useMemo(() => gstAmount / 2, [gstAmount]);
   const sgstAmount = useMemo(() => gstAmount / 2, [gstAmount]);
   const grandTotal = useMemo(() => subTotal + gstAmount, [subTotal, gstAmount]);
+  const walletUsed = useWallet
+  ? Math.min(walletBalance, grandTotal)
+  : 0;
+
+const finalAmount = grandTotal - walletUsed;
 
   const clearOrderedItemsFromCart = () => {
     const remainingItems = items.filter((item) => !selectedIds.includes(item.id));
@@ -119,7 +147,7 @@ export default function CartPage() {
 
     const invoiceNo = await getNextInvoiceNo();
 const orderId = await getNextOrderId();
-    const docRef = await addDoc(collection(db, "orders"), {
+  const docRef = await addDoc(collection(db, "orders"), {
   orderId,
   customerName: cleanName,
   phone: cleanPhone,
@@ -132,14 +160,19 @@ const orderId = await getNextOrderId();
 
   status: "Pending",
 
-  totalAmount: grandTotal,
+  // 🔥🔥🔥 IMPORTANT ADD THIS
+  returnStatus: "Not Requested",
+  returnEligibleTill: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+
+  totalAmount: finalAmount,
+walletUsed: walletUsed,
   subTotal,
   gstRate: GST_RATE,
   gstAmount,
   cgstAmount,
   sgstAmount,
 
-   invoiceNo, 
+  invoiceNo,
   billGenerated: true,
   billGeneratedAt: serverTimestamp(),
 
@@ -202,6 +235,7 @@ const handleOrder = async () => {
   try {
     setPlacing(true);
     setMessage("");
+    
 
     const result = await saveOrderToFirestore(
       cleanName,
@@ -210,6 +244,21 @@ const handleOrder = async () => {
       "ONLINE",
       "Pending"
     );
+    if (useWallet && walletUsed > 0) {
+  const userRef = doc(db, "users", userId);
+
+  await updateDoc(userRef, {
+    walletBalance: increment(-walletUsed),
+  });
+
+  await addDoc(collection(db, "transactions"), {
+    userId,
+    amount: walletUsed,
+    type: "debit",
+    note: "Used wallet in checkout",
+    createdAt: serverTimestamp(),
+  });
+}
 
     clearOrderedItemsFromCart();
 
@@ -344,10 +393,15 @@ const handleOrder = async () => {
             </div>
 
             <hr className="my-3" />
-
+{useWallet && walletUsed > 0 && (
+  <div className="flex justify-between text-green-600">
+    <span>Wallet Used</span>
+    <span>-₹{walletUsed.toFixed(2)}</span>
+  </div>
+)}
             <div className="flex justify-between text-lg font-bold">
               <span>Grand Total</span>
-              <span>₹{grandTotal.toFixed(2)}</span>
+             <span>₹{finalAmount.toFixed(2)}</span>
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
@@ -398,6 +452,14 @@ const handleOrder = async () => {
                   UPI / QR Payment
                 </label>
               </div>
+              <div className="flex items-center gap-2 mt-3">
+  <input
+    type="checkbox"
+    checked={useWallet}
+    onChange={() => setUseWallet(!useWallet)}
+  />
+  <label>Use Wallet (₹{walletBalance})</label>
+</div>
 
               <button
   type="button"

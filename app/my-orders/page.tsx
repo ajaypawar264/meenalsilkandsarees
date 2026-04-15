@@ -153,8 +153,8 @@ export default function MyOrdersPage() {
     }
   };
 
-  const canRequestReturn = (order: Order) => {
-    if (order.status !== "Delivered") return false;
+ const canRequestReturn = (order: Order) => {
+  if (order.status?.toLowerCase() !== "delivered") return false;
     if ((order.returnStatus || "Not Requested") !== "Not Requested") return false;
 
     const eligibleTill = toDate(order.returnEligibleTill);

@@ -1,4 +1,5 @@
 "use client";
+import { increment, addDoc } from "firebase/firestore";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -31,9 +32,11 @@ type PaymentStatus =
 
 type Order = {
   id: string;
+  userId: string;
   orderId?: string;
   invoiceNo?: string;
- 
+ returnStatus?: "Not Requested" | "Requested" | "Approved" | "Rejected";
+returnRequestedAt?: any;
   customerName: string;
   phone: string;
   address: string;
@@ -65,6 +68,7 @@ export default function AdminOrdersPage() {
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [billOrder, setBillOrder] = useState<Order | null>(null);
+  const [selectedReturn, setSelectedReturn] = useState<"All" | "Requested">("All");
 
   const fetchOrders = async () => {
   try {
@@ -108,23 +112,28 @@ export default function AdminOrdersPage() {
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const matchesStatus =
-        selectedStatus === "All" ? true : order.status === selectedStatus;
+  return orders.filter((order) => {
+    const matchesStatus =
+      selectedStatus === "All" ? true : order.status === selectedStatus;
 
-      const q = search.trim().toLowerCase();
+    const matchesReturn =
+      selectedReturn === "All"
+        ? true
+        : order.returnStatus === "Requested";
 
-      const matchesSearch =
-        !q ||
-        (order.customerName || "").toLowerCase().includes(q) ||
-        (order.phone || "").toLowerCase().includes(q) ||
-        (order.address || "").toLowerCase().includes(q) ||
-        (order.id || "").toLowerCase().includes(q) ||
-        (order.orderNumber || "").toLowerCase().includes(q);
+    const q = search.trim().toLowerCase();
 
-      return matchesStatus && matchesSearch;
-    });
-  }, [orders, selectedStatus, search]);
+    const matchesSearch =
+      !q ||
+      (order.customerName || "").toLowerCase().includes(q) ||
+      (order.phone || "").toLowerCase().includes(q) ||
+      (order.address || "").toLowerCase().includes(q) ||
+      (order.id || "").toLowerCase().includes(q) ||
+      (order.orderNumber || "").toLowerCase().includes(q);
+
+    return matchesStatus && matchesSearch && matchesReturn;
+  });
+}, [orders, selectedStatus, search, selectedReturn]);
 
   const getQty = (item: OrderItem) => item.qty || item.quantity || 1;
 
@@ -225,6 +234,54 @@ export default function AdminOrdersPage() {
       alert("Payment verify zala nahi.");
     }
   };
+  
+
+const updateReturnStatus = async (
+  orderId: string,
+  status: "Approved" | "Rejected"
+) => {
+  try {
+    const orderRef = doc(db, "orders", orderId);
+
+    await updateDoc(orderRef, {
+      returnStatus: status,
+      updatedAt: serverTimestamp(),
+    });
+
+    // ✅ If Approved → wallet add
+    if (status === "Approved") {
+      const order = orders.find((o) => o.id === orderId);
+
+      if (order) {
+        const userId = order.userId; // ⚠️ ensure order मध्ये userId आहे
+        const returnAmount = order.totalAmount;
+
+        await updateDoc(doc(db, "users", userId), {
+          walletBalance: increment(returnAmount),
+        });
+
+        await addDoc(collection(db, "transactions"), {
+          userId,
+          amount: returnAmount,
+          type: "credit",
+          note: "Return Refund",
+          createdAt: serverTimestamp(),
+        });
+      }
+    }
+
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? { ...order, returnStatus: status }
+          : order
+      )
+    );
+
+  } catch (error) {
+    console.error("Return update error:", error);
+  }
+};
 
  const handlePrintBill = (order: Order) => {
   const printWindow = window.open("", "_blank");
@@ -368,18 +425,20 @@ export default function AdminOrdersPage() {
             <p className="text-sm">Delivered Orders</p>
             <p className="mt-1 text-2xl font-bold">{counts.delivered}</p>
           </button>
+<button
+  onClick={() => setSelectedReturn("Requested")}
+  className="rounded-2xl border p-4 text-left shadow-sm transition border-orange-500 bg-orange-500 text-white"
+>
+  <p className="text-sm">Return Requests</p>
+</button>
 
-          <button
-            onClick={() => setSelectedStatus("Cancelled")}
-            className={`rounded-2xl border p-4 text-left shadow-sm transition ${
-              selectedStatus === "Cancelled"
-                ? "border-red-600 bg-red-600 text-white"
-                : "border-[#ead7d7] bg-white hover:border-red-600"
-            }`}
-          >
-            <p className="text-sm">Cancelled Orders</p>
-            <p className="mt-1 text-2xl font-bold">{counts.cancelled}</p>
-          </button>
+<button
+  onClick={() => setSelectedReturn("All")}
+  className="rounded-2xl border p-4 text-left shadow-sm transition border-gray-400 bg-gray-400 text-white"
+>
+  <p className="text-sm">All Returns</p>
+</button>
+          
         </div>
 
         <div className="no-print mb-6 rounded-2xl border border-[#ead7d7] bg-white p-4 shadow-sm">
@@ -412,8 +471,10 @@ export default function AdminOrdersPage() {
                     <th className="p-4 font-semibold">Amount</th>
                     <th className="p-4 font-semibold">Payment</th>
                     <th className="p-4 font-semibold">Status</th>
+                   <th className="p-4 font-semibold">Return</th>
                     <th className="p-4 font-semibold">Date</th>
                     <th className="p-4 font-semibold">Actions</th>
+                    
                   </tr>
                 </thead>
 
@@ -423,6 +484,7 @@ export default function AdminOrdersPage() {
                       <td colSpan={8} className="p-6 text-center">
                         Loading orders...
                       </td>
+                      
                     </tr>
                   ) : filteredOrders.length === 0 ? (
                     <tr>
@@ -430,6 +492,7 @@ export default function AdminOrdersPage() {
                         Orders nahi ahet.
                       </td>
                     </tr>
+                    
                   ) : (
                     filteredOrders.map((order) => (
                     <tr
@@ -439,6 +502,7 @@ export default function AdminOrdersPage() {
                         <td className="p-4 font-medium">
                          {order.orderId || order.id}
                         </td>
+                       
                         <td className="p-4">{order.customerName}</td>
                         <td className="p-4">{order.phone}</td>
                         <td className="p-4 font-semibold">
@@ -464,6 +528,27 @@ export default function AdminOrdersPage() {
                             <option value="Cancelled">Cancelled</option>
                           </select>
                         </td>
+                        <td className="p-4">
+  {order.returnStatus === "Requested" ? (
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={() => updateReturnStatus(order.id, "Approved")}
+        className="rounded bg-green-500 px-3 py-1 text-white"
+      >
+        Approve
+      </button>
+
+      <button
+        onClick={() => updateReturnStatus(order.id, "Rejected")}
+        className="rounded bg-red-500 px-3 py-1 text-white"
+      >
+        Reject
+      </button>
+    </div>
+  ) : (
+    <span>{order.returnStatus || "Not Requested"}</span>
+  )}
+</td>
                         <td className="p-4 text-sm">{getOrderDate(order.createdAt)}</td>
                         <td className="p-4">
                        <div className="flex min-w-[170px] flex-col gap-2 relative z-10">

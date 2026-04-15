@@ -173,6 +173,9 @@ useEffect(() => {
               </span>
             </div>
           </Link>
+          <Link href="/wallet" className="ml-4 text-green-400 font-semibold">
+  Wallet
+</Link>
 
           {/* Desktop Nav */}
           <nav className="ms-cehidden itenter gap-10 lg:flex">

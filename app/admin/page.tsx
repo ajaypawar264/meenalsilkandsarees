@@ -681,7 +681,7 @@ className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-white ho
    <p className="text-sm uppercase tracking-[0.2em] text-pink-300">
              Hero
             </p>
-            <h2 className="mt-4 text-2xl font-bold text-white">
+            <h2 className="mt-2 text-2xl font-bold text-white">
              Home page Photo
             </h2>
             <p className="mt-2 text-sm text-white/60">
