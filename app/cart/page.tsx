@@ -25,6 +25,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+
 const GST_RATE = 0.05; // 5%
 
 const SHOP_DETAILS = {

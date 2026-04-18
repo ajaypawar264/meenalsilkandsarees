@@ -1,7 +1,8 @@
 "use client";
 import { increment, addDoc } from "firebase/firestore";
-
+import { setDoc } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
+
 import {
   collection,
   doc,
@@ -235,12 +236,18 @@ export default function AdminOrdersPage() {
     }
   };
   
-
 const updateReturnStatus = async (
   orderId: string,
   status: "Approved" | "Rejected"
 ) => {
   try {
+    const order = orders.find((o) => o.id === orderId);
+
+    if (!order) {
+      console.log("Order not found");
+      return;
+    }
+
     const orderRef = doc(db, "orders", orderId);
 
     await updateDoc(orderRef, {
@@ -248,33 +255,25 @@ const updateReturnStatus = async (
       updatedAt: serverTimestamp(),
     });
 
-    // ✅ If Approved → wallet add
     if (status === "Approved") {
-      const order = orders.find((o) => o.id === orderId);
+    const userId = order.phone;
 
-      if (order) {
-        const userId = order.userId; // ⚠️ ensure order मध्ये userId आहे
-        const returnAmount = order.totalAmount;
+await updateDoc(doc(db, "users", userId), {
+  walletBalance: increment(Number(order.totalAmount || 0)),
+});
 
-        await updateDoc(doc(db, "users", userId), {
-          walletBalance: increment(returnAmount),
-        });
-
-        await addDoc(collection(db, "transactions"), {
-          userId,
-          amount: returnAmount,
-          type: "credit",
-          note: "Return Refund",
-          createdAt: serverTimestamp(),
-        });
-      }
+      await addDoc(collection(db, "transactions"), {
+        userId,
+        amount: order.totalAmount,
+        type: "credit",
+        note: "Return Refund",
+        createdAt: serverTimestamp(),
+      });
     }
 
     setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? { ...order, returnStatus: status }
-          : order
+      prev.map((o) =>
+        o.id === orderId ? { ...o, returnStatus: status } : o
       )
     );
 
@@ -282,6 +281,8 @@ const updateReturnStatus = async (
     console.error("Return update error:", error);
   }
 };
+
+  
 
  const handlePrintBill = (order: Order) => {
   const printWindow = window.open("", "_blank");

@@ -1,142 +1,153 @@
 "use client";
+import {  getDoc } from "firebase/firestore";
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import {
-  doc,
-  getDoc,
   collection,
   query,
   where,
   getDocs,
   orderBy,
+  addDoc,
+  updateDoc,
+  doc,
+  increment,
+  serverTimestamp,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth"; // ✅ ADD
-
-type Transaction = {
-  id: string;
-  amount: number;
-  type: "credit" | "debit";
-  createdAt: any;
-  note?: string;
-};
 
 export default function WalletPage() {
   const [balance, setBalance] = useState(0);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [userId, setUserId] = useState<string | null>(null); // ✅ ADD
-  const [loading, setLoading] = useState(true); // ✅ ADD
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [mobile, setMobile] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // ✅ AUTH USER GET
+  // 📱 get mobile
   useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-
-    if (user) {
-      setUserId(user.uid);
-    }
+    const m = localStorage.getItem("mobile");
+    if (m) setMobile(m);
   }, []);
 
-  // ✅ FETCH DATA ONLY WHEN userId AVAILABLE
+  // 🔄 fetch when mobile loads
   useEffect(() => {
-    if (userId) {
+    if (mobile) {
       fetchWallet();
       fetchTransactions();
     }
-  }, [userId]);
+  }, [mobile]);
 
-  const fetchWallet = async () => {
-    if (!userId) return;
+  // 💰 ADD MONEY (FIXED)
+  const addMoneyToWallet = async (amount: number) => {
+    if (!mobile) return;
 
-    const docRef = doc(db, "users", userId);
-    const snap = await getDoc(docRef);
+    try {
+      const userRef = doc(db, "users", mobile);
 
-    if (snap.exists()) {
-      setBalance(snap.data().walletBalance || 0);
+      await updateDoc(userRef, {
+        walletBalance: increment(Number(amount)),
+      });
+
+      await addDoc(collection(db, "transactions"), {
+        userId: mobile,
+        amount,
+        type: "credit",
+        note: "Money Added",
+        createdAt: serverTimestamp(),
+      });
+
+      await fetchWallet();
+      await fetchTransactions();
+
+      console.log("✅ Wallet updated");
+    } catch (err) {
+      console.error("❌ Wallet error:", err);
     }
   };
 
+ 
+
+const fetchWallet = async () => {
+  if (!mobile) return;
+
+  const ref = doc(db, "users", mobile);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    setBalance(snap.data().walletBalance || 0);
+  } else {
+    setBalance(0);
+  }
+};
+
+  // 📜 fetch transactions
   const fetchTransactions = async () => {
-    if (!userId) return;
+    if (!mobile) return;
 
     setLoading(true);
 
     const q = query(
       collection(db, "transactions"),
-      where("userId", "==", userId),
+      where("userId", "==", mobile),
       orderBy("createdAt", "desc")
     );
 
     const snap = await getDocs(q);
 
-    const data = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as any),
-    }));
+    setTransactions(
+      snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }))
+    );
 
-    setTransactions(data);
     setLoading(false);
   };
 
-  const formatDate = (date: any) => {
-    if (!date) return "-";
-    if (date.toDate) return date.toDate().toLocaleString("en-IN");
-    return new Date(date).toLocaleString("en-IN");
-  };
-
   return (
-    <main className="min-h-screen bg-[#fff8f3] p-4 md:p-8 text-[#3b1f1f]">
-      <div className="mx-auto max-w-4xl">
+    <div className="min-h-screen bg-[#fff8f3] p-6">
+      <div className="max-w-xl mx-auto bg-white rounded-2xl shadow p-6">
 
-        {/* 💰 Balance */}
-        <div className="rounded-2xl bg-[#7a2848] text-white p-6 shadow-lg">
-          <h2 className="text-lg">Wallet Balance</h2>
-          <p className="text-3xl font-bold mt-2">
-            ₹{balance.toFixed(2)}
-          </p>
+        <h1 className="text-2xl font-bold text-[#7a2848] mb-4">
+          Wallet Balance
+        </h1>
+
+        <div className="text-3xl font-bold text-green-600 mb-6">
+          ₹{balance}
         </div>
+
+        {/* ➕ Add Money */}
+      
 
         {/* 📜 Transactions */}
-        <div className="mt-6 rounded-2xl bg-white p-4 shadow">
-          <h3 className="text-xl font-bold mb-4">Transaction History</h3>
+        <h2 className="mt-8 text-xl font-semibold text-[#7a2848]">
+          Transactions
+        </h2>
 
-          {loading ? (
-            <p>Loading...</p>
-          ) : transactions.length === 0 ? (
-            <p className="text-gray-500 text-center">
-              No transactions yet 💸
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex justify-between items-center border p-3 rounded-lg"
-                >
-                  <div>
-                    <p className="font-semibold">
-                      {tx.note || "Wallet Transaction"}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {formatDate(tx.createdAt)}
-                    </p>
-                  </div>
-
-                  <div
-                    className={`font-bold ${
-                      tx.type === "credit"
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {tx.type === "credit" ? "+" : "-"}₹{tx.amount}
-                  </div>
+        {loading ? (
+          <p className="mt-3 text-sm">Loading...</p>
+        ) : transactions.length === 0 ? (
+          <p className="mt-3 text-sm text-gray-500">
+            No transactions yet
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {transactions.map((t) => (
+              <div
+                key={t.id}
+                className="flex justify-between border p-3 rounded-lg"
+              >
+                <div>
+                  <p className="font-medium">{t.note}</p>
+                  <p className="text-xs text-gray-500">{t.type}</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <div className="font-semibold text-green-600">
+                  +₹{t.amount}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </main>
+    </div>
   );
 }

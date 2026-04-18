@@ -411,13 +411,7 @@ useEffect(() => {
                 </>
               )}
 
-              <Link
-                href="/admin-login"
-                onClick={closeMenu}
-                className="rounded-xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-              >
-                Admin
-              </Link>
+            
             </div>
           </div>
         </div>
