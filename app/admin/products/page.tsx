@@ -184,7 +184,7 @@ const updatedColors =
     stock:
       variantStocks[product.id]?.[idx] !== undefined
         ? variantStocks[product.id][idx]
-        : c.stock,
+        : (c.stock ?? 0), // 🔥 fix
   })) || [];
       const updateData: any = {
   stock: newStock,
@@ -207,7 +207,11 @@ const updatedColors =
         updateData.imageUrl = uploadedImageUrl;
       }
 
-      await updateDoc(doc(db, "products", productId), updateData);
+     const cleanData = Object.fromEntries(
+  Object.entries(updateData).filter(([_, v]) => v !== undefined)
+);
+
+await updateDoc(doc(db, "products", productId), cleanData);
 
       setProducts((prev) =>
         prev.map((p) =>
