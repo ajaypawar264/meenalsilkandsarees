@@ -36,8 +36,8 @@ export default function AddProductsPage() {
   const [addingProduct, setAddingProduct] = useState(false);
 
   const [colorInputs, setColorInputs] = useState([
-    { color: "", media: [] as UploadedMediaItem[] },
-  ]);
+  { color: "", stock: 0, media: [] as UploadedMediaItem[] },
+]);
 
   const [categories, setCategories] = useState<any[]>([]);
 
@@ -59,8 +59,11 @@ export default function AddProductsPage() {
   };
 
   const handleAddColor = () => {
-    setColorInputs((prev) => [...prev, { color: "", media: [] }]);
-  };
+  setColorInputs((prev) => [
+    ...prev,
+    { color: "", stock: 0, media: [] }
+  ]);
+};
 
   const handleColorChange = (index: number, value: string) => {
     const updated = [...colorInputs];
@@ -115,6 +118,8 @@ export default function AddProductsPage() {
 
       // COLOR PRODUCTS
       const handleSubmit = async (e: React.FormEvent) => {
+        
+stock: colorInputs.reduce((sum, item) => sum + Number(item.stock || 0), 0),
   e.preventDefault();
 
   if (!productForm.name || !productForm.price) {
@@ -125,19 +130,58 @@ export default function AddProductsPage() {
   try {
     setAddingProduct(true);
 
-    let finalCategory = productForm.category;
-    let finalSubCategory = productForm.subCategory;
+   let finalCategory = productForm.category;
+let finalSubCategory = productForm.subCategory;
 
+// ✅ NEW CATEGORY ADD
+if (productForm.category === "Other" && productForm.newCategory) {
+  finalCategory = productForm.newCategory;
+const exists = categories.some(
+  (cat) => cat.name === productForm.newCategory
+);
+if (exists) {
+  alert("Category already exists");
+  return;
+}
+  await addDoc(collection(db, "categories"), {
+    name: productForm.newCategory,
+    subCategories: productForm.newSubCategory
+      ? [productForm.newSubCategory]
+      : [],
+    createdAt: serverTimestamp(),
+  });
+}
+
+// ✅ NEW SUBCATEGORY ADD
+else if (productForm.subCategory === "Other" && productForm.newSubCategory) {
+  finalSubCategory = productForm.newSubCategory;
+
+  const categoryRef = categories.find(
+    (cat) => cat.name === productForm.category
+  );
+
+  if (categoryRef) {
+    await updateDoc(doc(db, "categories", categoryRef.id), {
+      subCategories: [
+        ...new Set([
+          ...(categoryRef.subCategories || []),
+          productForm.newSubCategory,
+        ]),
+      ],
+    });
+  }
+}
     // ... (category + subcategory logic same thev)
 
     // ✅ Build colors array
-    const colorsData = colorInputs
-      .filter((item) => item.color && item.media.length > 0)
-      .map((item) => ({
-        color: item.color,
-        imageUrl: item.media[0]?.url || "",
-        mediaFiles: item.media,
-      }));
+  const colorsData = colorInputs
+  .filter((item) => item.color && item.media.length > 0)
+  .map((item: any) => ({
+    color: item.color,
+    stock: Number(item.stock || 0), // ✅ USE COLOR STOCK
+    imageUrl: item.media[0]?.url || "",
+    mediaFiles: item.media,
+  }));
 
     // 🔥 👉 HE ITHE TAK
     if (colorsData.length === 0) {
@@ -156,23 +200,27 @@ const customId = `product-${productNumber}`;
 
 // 👉 setDoc use kar
 await setDoc(doc(db, "products", customId), {
-  productNumber: productNumber,
-  name: productForm.name,
+ baseName: productForm.name,
+  price: Number(productForm.price),
+  originalPrice: Number(productForm.originalPrice || 0),
   category: finalCategory,
   subCategory: finalSubCategory,
-  price: Number(productForm.price),
-  stock: Number(productForm.stock || 0),
-  description:
-    productForm.description ||
-    "Premium quality product from our store",
-  inStock: productForm.inStock,
-  colors: colorsData,
   createdAt: serverTimestamp(),
-    originalPrice: Number(productForm.originalPrice || productForm.price), // 🔥 ADD
+    stock: colorInputs.reduce(
+    (sum, item) => sum + Number(item.stock || 0),
+    0
+  ),
+
+  colors: colorInputs.map((item) => ({
+    color: item.color,
+    stock: Number(item.stock || 0),
+    imageUrl: item.media?.[0]?.url || "",
+    mediaFiles: item.media,
+  })),
 });
 
     alert("Products added successfully ✅");
-
+await refreshCategories();
       
 
       setProductForm({
@@ -188,7 +236,7 @@ await setDoc(doc(db, "products", customId), {
           originalPrice: "", // 🔥 ADD
       });
 
-      setColorInputs([{ color: "", media: [] }]);
+      setColorInputs([{ color: "", stock: 0, media: [] }]);
       setShowForm(false);
     } catch (err) {
       console.error(err);
@@ -251,13 +299,7 @@ await setDoc(doc(db, "products", customId), {
   </p>
 )}
 
-          <input
-            type="number"
-            placeholder="Stock"
-            value={productForm.stock}
-            onChange={(e) => handleChange("stock", e.target.value)}
-            className="p-3 rounded bg-black/30"
-          />
+         
 
           <textarea
             placeholder="Description"
@@ -326,15 +368,27 @@ await setDoc(doc(db, "products", customId), {
           {/* COLOR VARIANTS */}
           {colorInputs.map((item, index) => (
             <div key={index} className="border p-3 rounded">
-              <input
-                type="text"
-                placeholder="Enter Color"
-                value={item.color}
-                onChange={(e) =>
-                  handleColorChange(index, e.target.value)
-                }
-                className="p-3 rounded bg-black/30 w-full mb-2"
-              />
+           <input
+  type="text"
+  placeholder="Enter Color"
+  value={item.color}
+  onChange={(e) =>
+    handleColorChange(index, e.target.value)
+  }
+  className="p-3 rounded bg-black/30 w-full mb-2"
+/>
+
+<input
+  type="number"
+  placeholder="Color Stock"
+  value={item.stock || 0}
+  onChange={(e) => {
+    const updated = [...colorInputs];
+    (updated[index] as any).stock = Number(e.target.value);
+    setColorInputs(updated);
+  }}
+  className="p-3 rounded bg-black/30 w-full mb-2"
+/>
 
               <input
                 type="file"

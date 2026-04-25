@@ -24,6 +24,7 @@ type Product = {
   id: string;
   originalPrice?: number; // 🔥 ADD THIS
   name: string;
+    baseName?: string;
   price: number;
   stock?: number;
   category: string;
@@ -696,7 +697,7 @@ const discount =
 
       <div className="relative z-10 p-5">
         <h4 className="min-h-[64px] text-[20px] font-semibold leading-snug text-white">
-          {p.name || "Untitled Product"}
+          {p.name || p.baseName|| "Untitled Product"}
         </h4>
 
         <div className="mt-3 flex items-end gap-3">
@@ -749,7 +750,7 @@ const discount =
   onClick={() => {
     addToCart({
       id: p.id,
-      name: p.name || "Product",
+      name: p.name || p.baseName|| "Product",
       price: price,
       category: p.category || "Uncategorized",
       imageUrl: p.imageUrl || "",

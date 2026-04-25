@@ -3,6 +3,7 @@ import { increment, addDoc } from "firebase/firestore";
 import { setDoc } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 
+import { getDoc } from "firebase/firestore";
 import {
   collection,
   doc,
@@ -244,7 +245,7 @@ const updateReturnStatus = async (
     const order = orders.find((o) => o.id === orderId);
 
     if (!order) {
-      console.log("Order not found");
+      console.log("ORDER DATA:", order);
       return;
     }
 
@@ -255,21 +256,41 @@ const updateReturnStatus = async (
       updatedAt: serverTimestamp(),
     });
 
-    if (status === "Approved") {
-    const userId = order.phone;
+  if (status === "Approved") {
+  const userId = order.phone; // phone = wallet key
 
-await updateDoc(doc(db, "users", userId), {
-  walletBalance: increment(Number(order.totalAmount || 0)),
-});
+  const walletRef = doc(db, "wallets", userId);
+  const walletSnap = await getDoc(walletRef);
 
-      await addDoc(collection(db, "transactions"), {
-        userId,
-        amount: order.totalAmount,
-        type: "credit",
-        note: "Return Refund",
-        createdAt: serverTimestamp(),
-      });
-    }
+  // create wallet if not exists
+  if (!walletSnap.exists()) {
+    await setDoc(walletRef, {
+      balance: 0,
+      phone: userId,
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  // current balance safely get
+  const currentBalance = walletSnap.exists()
+    ? walletSnap.data().balance || 0
+    : 0;
+
+  // update wallet (IMPORTANT: use increment instead of overwrite logic)
+  await updateDoc(walletRef, {
+    balance: currentBalance + Number(order.totalAmount || 0),
+    updatedAt: serverTimestamp(),
+  });
+
+  // transaction log
+  await addDoc(collection(db, "transactions"), {
+    userId,
+    amount: order.totalAmount,
+    type: "credit",
+    note: "Return Refund",
+    createdAt: serverTimestamp(),
+  });
+}
 
     setOrders((prev) =>
       prev.map((o) =>

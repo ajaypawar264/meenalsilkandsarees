@@ -164,32 +164,37 @@ export default function MyOrdersPage() {
   };
 
   const handleReturnRequest = async (orderId: string) => {
-    try {
-      setRequestingReturnId(orderId);
+  try {
+    setRequestingReturnId(orderId);
 
-      await updateDoc(doc(db, "orders", orderId), {
-        returnStatus: "Requested",
-        returnRequestedAt: new Date(),
-      });
+    const order = orders.find((o) => o.id === orderId);
 
-      setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId
-            ? {
-                ...order,
-                returnStatus: "Requested",
-                returnRequestedAt: new Date(),
-              }
-            : order
-        )
-      );
-    } catch (error) {
-      console.error("Return request failed:", error);
-      alert("Return request failed");
-    } finally {
-      setRequestingReturnId("");
+    if (!order) return;
+
+    // ❌ already requested or processed
+    if (order.returnStatus !== "Not Requested") {
+      alert("Return already processed/requested");
+      return;
     }
-  };
+
+    await updateDoc(doc(db, "orders", orderId), {
+      returnStatus: "Requested",
+      returnRequestedAt: new Date(),
+    });
+
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? { ...o, returnStatus: "Requested" }
+          : o
+      )
+    );
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setRequestingReturnId("");
+  }
+};
 
   const handlePrintInvoice = (orderId: string) => {
     const printContents = document.getElementById(`invoice-${orderId}`)?.innerHTML;

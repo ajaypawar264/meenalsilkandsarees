@@ -27,25 +27,30 @@ export default function ProductMediaSlider({
   videoUrls = [],
   mediaFiles = [],
 }: Props) {
-  const finalMedia = useMemo(() => {
-    if (mediaFiles?.length > 0) return mediaFiles;
+const finalMedia = useMemo(() => {
+  // ✅ PRIORITY 1 → mediaFiles
+  if (mediaFiles && mediaFiles.length > 0) {
+    return mediaFiles.map((m: any) => ({
+      url: normalizeUrl(m.url || ""),
+      type: m.type || (m.url?.includes(".mp4") ? "video" : "image"),
+    }));
+  }
 
-    const images = imageUrls.map((url) => ({
+  // ✅ PRIORITY 2 → imageUrls
+  if (imageUrls && imageUrls.length > 0) {
+    return imageUrls.map((url) => ({
       url: normalizeUrl(url),
       type: "image" as const,
     }));
+  }
 
-    const videos = videoUrls.map((url) => ({
-      url: normalizeUrl(url),
-      type: "video" as const,
-    }));
+  // ✅ PRIORITY 3 → single image
+  if (imageUrl) {
+    return [{ url: normalizeUrl(imageUrl), type: "image" as const }];
+  }
 
-    if (images.length === 0 && videos.length === 0 && imageUrl) {
-      return [{ url: normalizeUrl(imageUrl), type: "image" as const }];
-    }
-
-    return [...images, ...videos];
-  }, [mediaFiles, imageUrls, videoUrls, imageUrl]);
+  return [];
+}, [mediaFiles, imageUrls, imageUrl]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const touchStartX = useRef(0);

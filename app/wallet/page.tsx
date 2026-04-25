@@ -1,5 +1,4 @@
 "use client";
-import {  getDoc } from "firebase/firestore";
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
@@ -7,28 +6,30 @@ import {
   collection,
   query,
   where,
-  getDocs,
   orderBy,
-  addDoc,
-  updateDoc,
+  getDocs,
   doc,
+  getDoc,
+  setDoc,
   increment,
   serverTimestamp,
+  addDoc,
+  updateDoc,
 } from "firebase/firestore";
 
 export default function WalletPage() {
+  const [mobile, setMobile] = useState<string | null>(null);
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [mobile, setMobile] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 📱 get mobile
+  // 📱 get user mobile
   useEffect(() => {
     const m = localStorage.getItem("mobile");
     if (m) setMobile(m);
   }, []);
 
-  // 🔄 fetch when mobile loads
+  // 🔄 load data
   useEffect(() => {
     if (mobile) {
       fetchWallet();
@@ -36,71 +37,50 @@ export default function WalletPage() {
     }
   }, [mobile]);
 
-  // 💰 ADD MONEY (FIXED)
-  const addMoneyToWallet = async (amount: number) => {
+  // 💰 FETCH WALLET
+  const fetchWallet = async () => {
     if (!mobile) return;
 
     try {
-      const userRef = doc(db, "users", mobile);
+      const ref = doc(db, "wallets", mobile);
+      const snap = await getDoc(ref);
 
-      await updateDoc(userRef, {
-        walletBalance: increment(Number(amount)),
-      });
-
-      await addDoc(collection(db, "transactions"), {
-        userId: mobile,
-        amount,
-        type: "credit",
-        note: "Money Added",
-        createdAt: serverTimestamp(),
-      });
-
-      await fetchWallet();
-      await fetchTransactions();
-
-      console.log("✅ Wallet updated");
+      if (snap.exists()) {
+        setBalance(snap.data().balance || 0);
+      } else {
+        setBalance(0);
+      }
     } catch (err) {
-      console.error("❌ Wallet error:", err);
+      console.error("Wallet fetch error:", err);
     }
   };
 
- 
-
-const fetchWallet = async () => {
-  if (!mobile) return;
-
-  const ref = doc(db, "users", mobile);
-  const snap = await getDoc(ref);
-
-  if (snap.exists()) {
-    setBalance(snap.data().walletBalance || 0);
-  } else {
-    setBalance(0);
-  }
-};
-
-  // 📜 fetch transactions
+  // 📜 FETCH TRANSACTIONS
   const fetchTransactions = async () => {
     if (!mobile) return;
 
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const q = query(
-      collection(db, "transactions"),
-      where("userId", "==", mobile),
-      orderBy("createdAt", "desc")
-    );
+      const q = query(
+        collection(db, "transactions"),
+        where("userId", "==", mobile),
+        orderBy("createdAt", "desc")
+      );
 
-    const snap = await getDocs(q);
+      const snap = await getDocs(q);
 
-    setTransactions(
-      snap.docs.map((d) => ({
+      const data = snap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
-      }))
-    );
+      }));
 
-    setLoading(false);
+      setTransactions(data);
+    } catch (err) {
+      console.error("Transaction fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -115,22 +95,17 @@ const fetchWallet = async () => {
           ₹{balance}
         </div>
 
-        {/* ➕ Add Money */}
-      
-
-        {/* 📜 Transactions */}
-        <h2 className="mt-8 text-xl font-semibold text-[#7a2848]">
+        {/* Transactions */}
+        <h2 className="text-xl font-semibold text-[#7a2848] mb-3">
           Transactions
         </h2>
 
         {loading ? (
-          <p className="mt-3 text-sm">Loading...</p>
+          <p>Loading...</p>
         ) : transactions.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">
-            No transactions yet
-          </p>
+          <p className="text-gray-500">No transactions yet</p>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             {transactions.map((t) => (
               <div
                 key={t.id}
@@ -138,15 +113,25 @@ const fetchWallet = async () => {
               >
                 <div>
                   <p className="font-medium">{t.note}</p>
-                  <p className="text-xs text-gray-500">{t.type}</p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    {t.type}
+                  </p>
                 </div>
-                <div className="font-semibold text-green-600">
-                  +₹{t.amount}
+
+                <div
+                  className={
+                    t.type === "credit"
+                      ? "text-green-600 font-semibold"
+                      : "text-red-500 font-semibold"
+                  }
+                >
+                  {t.type === "credit" ? "+" : "-"}₹{t.amount}
                 </div>
               </div>
             ))}
           </div>
         )}
+
       </div>
     </div>
   );

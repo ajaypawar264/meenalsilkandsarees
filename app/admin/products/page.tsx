@@ -12,23 +12,34 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
+type Variant = {
+  color: string;
+  stock: number;
+  imageUrl?: string;
+};
 
 type Product = {
   id: string;
-  name: string;
+   name?: string;        // optional kar
+  baseName?: string;
+ 
   price: number;
   stock?: number;
   sold?: number;
   category?: string;
   subCategory?: string; // ✅ added
   color?: string;
+  colors?: Variant[]; 
   imageUrl?: string;
-  mediaFiles?: { url: string }[];
+mediaFiles?: { url: string; type?: string }[];
   description?: string;
   inStock?: boolean;
 };
 
 export default function AdminProductsPage() {
+  const [variantStocks, setVariantStocks] = useState<
+  Record<string, Record<number, number>>
+>({});
   const [search, setSearch] = useState("");
 const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
   const [products, setProducts] = useState<Product[]>([]);
@@ -122,8 +133,9 @@ const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
 
       const stockInput = document.getElementById(
         `stock-${productId}`
-      ) as HTMLInputElement | null;
-
+      ) as HTMLInputElement | null
+      
+;
       const priceInput = document.getElementById(
         `price-${productId}`
       ) as HTMLInputElement | null;
@@ -139,10 +151,16 @@ const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
       const descInput = document.getElementById(
         `desc-${productId}`
       ) as HTMLTextAreaElement | null;
+      
 
       const subCategoryInput = document.getElementById(
         `subCategory-${productId}`
       ) as HTMLInputElement | null;
+      const product = products.find((p) => p.id === productId);
+if (!product) {
+  alert("Product not found");
+  return;
+}
 
       const newStock = Number(stockInput?.value || 0);
       const newPrice = Number(priceInput?.value || 0);
@@ -160,17 +178,25 @@ const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
         alert("Stock negative nasava");
         return;
       }
-
+const updatedColors =
+  product.colors?.map((c, idx) => ({
+    ...c,
+    stock:
+      variantStocks[product.id]?.[idx] !== undefined
+        ? variantStocks[product.id][idx]
+        : c.stock,
+  })) || [];
       const updateData: any = {
-        stock: newStock,
-        price: newPrice,
-        color: newColor,
-        name: newName,
-        description: newDesc,
-        subCategory: newSubCategory, // ✅ added
-        inStock: newStock > 0,
-      };
-
+  stock: newStock,
+  
+  price: newPrice,
+  color: newColor,
+  name: newName,
+  description: newDesc,
+  subCategory: newSubCategory,
+  inStock: newStock > 0,
+  colors: updatedColors, // 🔥 THIS LINE WAS MISSING
+};
       const selectedFile = imageFileMap[productId];
 
       if (selectedFile) {
@@ -306,39 +332,38 @@ const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
          (
           <div className="space-y-4">
            {filteredProducts.map((product) => {
-              const previewImage =
-                previewMap[product.id] ||
-                product.mediaFiles?.[0]?.url ||
-                product.imageUrl ||
-                "";
+  console.log("PRODUCT:", product);
+  console.log("MEDIA:", product.mediaFiles);
 
+  const previewImage =
+  previewMap[product.id] ||
+  product.mediaFiles?.[0]?.url ||
+  product.imageUrl ||
+  (product as any).colors?.[0]?.imageUrl ||
+  "";
+
+
+    
               return (
                 <div
                   key={product.id}
                   className="grid gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl md:grid-cols-[140px_1fr_auto]"
                 >
                   <div>
-                    {product.mediaFiles?.length ? (
-                      <div className="flex gap-2 overflow-x-auto">
-                        {product.mediaFiles.map((img, i) => (
-                          <img
-                            key={i}
-                            src={img.url}
-                            className="h-28 w-28 rounded-2xl object-cover"
-                          />
-                        ))}
-                      </div>
-                    ) : previewImage ? (
-                      <img
-                        src={previewImage}
-                        alt={product.name}
-                        className="h-28 w-28 rounded-2xl object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-28 w-28 items-center justify-center rounded-2xl bg-white/10 text-center text-sm text-white/50">
-                        No Image
-                      </div>
-                    )}
+                 {previewImage ? (
+  <img
+    src={previewImage + "?tr=f-jpg"}
+    alt={product.name}
+    className="h-28 w-28 rounded-2xl object-cover"
+    onError={(e) => {
+      (e.target as HTMLImageElement).style.display = "none";
+    }}
+  />
+) : (
+  <div className="flex h-28 w-28 items-center justify-center rounded-2xl bg-white/10 text-white/50">
+    No Image
+  </div>
+)}
 
                     <label className="mt-3 block text-xs text-white/70">
                       Upload Photo
@@ -352,9 +377,9 @@ const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
                   </div>
 
                   <div>
-                    <h2 className="text-xl font-bold text-yellow-400">
-                      {product.name}
-                    </h2>
+                   <h2 className="text-xl font-bold text-yellow-400">
+  {product.name || product.baseName || "Unnamed"}
+</h2>
 
                     <p className="mt-1 text-white/70">
                       {product.description}

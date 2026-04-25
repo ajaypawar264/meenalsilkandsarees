@@ -35,6 +35,8 @@ useEffect(() => {
 
 
 type Product = {
+  originalPrice?: number;
+discount?: number;
   id: string;
   name: string;
   price: number;
@@ -106,28 +108,43 @@ function ProductsContent() {
   const stockValue = Number(data.stock ?? 0);
   const priceValue = Number(data.price ?? 0);
 
-  const mainImage =
-    data.colors?.[0]?.imageUrl || "";
+ 
 
-  return {
-    id: docItem.id,
-    name: data.name || "Unnamed Product",
-    color: data.color || "",
-    price: Number.isFinite(priceValue) ? priceValue : 0,
-    stock: Number.isFinite(stockValue) ? stockValue : 0,
-    category: data.category || "Uncategorized",
-    inStock:
-      typeof data.inStock === "boolean"
-        ? data.inStock
-        : stockValue > 0,
+const colorsArray = Array.isArray(data.colors) ? data.colors : [];
+const firstColor = colorsArray.length > 0 ? colorsArray[0] : null;
 
-    // 🔥 IMAGE FIX HERE
-    imageUrl: mainImage,
+return {
+  id: docItem.id,
+ 
+  name: data.name ||   data.baseName || "Unnamed Product",
+  color: data.color || firstColor?.color || "",
 
-    imageUrls: data.imageUrls || [],
-    videoUrls: data.videoUrls || [],
-    mediaFiles: data.mediaFiles || [],
-  };
+  price: Number(data.price ?? 0),
+  stock: Number(data.stock ?? 0),
+  category: data.category || "Uncategorized",
+
+  originalPrice: Number(data.originalPrice || 0),
+  discount: Number(data.discount || 0),
+
+  inStock:
+    typeof data.inStock === "boolean"
+      ? data.inStock
+      : (data.stock ?? 0) > 0,
+
+  // ✅ IMAGE FIX (SAFE)
+  imageUrl:
+    firstColor?.imageUrl ||
+    firstColor?.mediaFiles?.[0]?.url ||
+    "",
+
+  imageUrls:
+    firstColor?.mediaFiles?.map((m: any) => m.url) || [],
+
+  mediaFiles:
+    firstColor?.mediaFiles || [],
+
+  videoUrls: data.videoUrls || [],
+};
 });
 
         setProducts(items);
@@ -430,16 +447,12 @@ function ProductsContent() {
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 {filteredProducts.map((p) => {
                   const productPrice = Number(p.price ?? 0);
-                  const fakeOldPrice = Math.max(Math.round(productPrice * 1.25), productPrice);
-                  const discount = Math.max(
-                    10,
-                    Math.min(
-                      50,
-                      fakeOldPrice > 0
-                        ? Math.round(((fakeOldPrice - productPrice) / fakeOldPrice) * 100)
-                        : 10
-                    )
-                  );
+
+const discountPercent =
+  p.originalPrice && p.originalPrice > 0
+    ? Math.round(((p.originalPrice - productPrice) / p.originalPrice) * 100)
+    : 0;
+                 
 
                   return (
                     <div
@@ -505,18 +518,32 @@ function ProductsContent() {
                             {p.name || "Unnamed Product"}
                           </Link>
                         </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+  Color: {p.color}
+</p>
 
                      <div className="mt-3 flex items-center justify-between">
   <div className="flex items-end gap-3">
+    
+    {/* CURRENT PRICE */}
     <p className="text-2xl font-bold text-[#1a1a1a]">
       ₹{productPrice}
     </p>
-    <p className="pb-1 text-base text-white/35 line-through">
-      ₹{fakeOldPrice}
-    </p>
+
+    {/* ORIGINAL PRICE (only if exists) */}
+    {(p.originalPrice ?? 0)> 0 && (
+      <p className="pb-1 text-base text-gray-400 line-through">
+        ₹{p.originalPrice}
+      </p>
+    )}
+
   </div>
 
-  
+ {discountPercent > 0 && (
+  <span className="bg-green-100 text-green-600 text-xs font-semibold px-2 py-1 rounded-full">
+    {discountPercent}% OFF
+  </span>
+)}
 </div>
 
                        <div className="mt-3 flex items-center justify-between">
@@ -526,13 +553,11 @@ function ProductsContent() {
   </span>
 
   {/* RIGHT SIDE → STOCK */}
-  <span
-    className={`text-sm font-medium ${
-      (p.stock ?? 0) > 0 ? "In Stock" : "Out of Stock"
-    }`}
-  >
-    {(p.stock ?? 0) > 0 ? "In Stock" : "Out of Stock"}
-  </span>
+ <span className={`text-sm font-medium ${
+  (p.stock ?? 0) > 0 ? "text-green-600" : "text-red-500"
+}`}>
+  {(p.stock ?? 0) > 0 ? "In Stock" : "Out of Stock"}
+</span>
 </div>
 
                         <button

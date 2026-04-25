@@ -84,13 +84,14 @@ const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(null);
           imageUrls: data.imageUrls || [],
           videoUrls: data.videoUrls || [],
           mediaFiles: data.mediaFiles || [],
-         colors: data.colors?.length
+       colors: Array.isArray(data.colors)
   ? data.colors.map((c: any) => ({
       color: c.color,
-      imageUrl: c.imageUrl,
-      price: c.price,
-      stock: c.stock,
+      imageUrl: c.imageUrl || data.imageUrl || "",
+      price: Number(c.price ?? data.price ?? 0),
+      stock: Number(c.stock ?? data.stock ?? 0),
       mediaFiles: c.mediaFiles || [],
+    
     }))
   : data.color
   ? data.color.split("/").map((clr: string) => ({
@@ -200,21 +201,21 @@ useEffect(() => {
 
         <div className="grid gap-8 md:grid-cols-2">
           <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/10 shadow-xl">
-        <ProductMediaSlider
- key={selectedColor?.color || "default"}
+   <ProductMediaSlider
+  key={selectedColor?.color || "default"}
   productName={product.name}
   imageUrl={
-  selectedColor?.imageUrl ||
-  product.colors?.[0]?.imageUrl ||
-  ""
-}
+    selectedColor?.imageUrl ||
+    product.imageUrl ||
+    ""
+  }
   imageUrls={[]}
   videoUrls={[]}
   mediaFiles={
-  selectedColor?.mediaFiles && selectedColor.mediaFiles.length > 0
-    ? selectedColor.mediaFiles
-    : product.mediaFiles || []
-}
+    selectedColor?.mediaFiles?.length
+      ? selectedColor.mediaFiles
+      : product.mediaFiles || []
+  }
 />
           </div>
 
@@ -254,20 +255,20 @@ useEffect(() => {
     </h3>
 
     <div className="flex flex-wrap gap-3">
-     {(product.colors || []).map((c: ColorVariant, i: number) => (
-        <div
-          key={i}
-          title={c.color}
-          onClick={() => setSelectedColor(c)}
-          className={`px-3 py-1 text-xs rounded-full cursor-pointer border ${
-            selectedColor?.color === c.color
-              ? "bg-white text-black"
-              : "bg-white/10 text-white"
-          }`}
-        >
-          {c.color}
-        </div>
-      ))}
+     {product.colors?.map((c, i) => (
+  <div
+    key={i}
+    onClick={() => setSelectedColor(c)}
+    className={`px-3 py-1 text-xs rounded-full cursor-pointer border transition ${
+      selectedColor?.color === c.color
+        ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-black"
+        : "bg-white/10 text-white"
+    }`}
+  >
+    {c.color}
+  </div>
+))}
+     
     </div>
   </div>
 ) : (
@@ -312,7 +313,7 @@ useEffect(() => {
 
   alert("Item added to cart ✅");
 }}
-                disabled={!product.inStock}
+                disabled={(selectedColor?.stock ?? 0) <= 0}
                 className="rounded-2xl bg-gradient-to-r from-[#b88639] to-[#e2b45b] px-6 py-3 font-semibold text-[#2b1208] transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-white/70"
               >
                 {product.inStock ? "Add to Cart" : "Sold Out"}
