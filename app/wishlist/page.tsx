@@ -5,14 +5,17 @@ import { useEffect, useState } from "react";
 import { getWishlist, removeFromWishlist } from "@/lib/wishlist";
 import Header from "../components/Header";
 import {  query } from "firebase/firestore";
-
-
+import { useRouter } from "next/navigation";
+import { addToCart } from "@/lib/cart";
+import Link from "next/link";
 
 export default function WishlistPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [wishlistProducts, setWishlistProducts] = useState<any[]>([]);
 const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+
 useEffect(() => {
   const stored = localStorage.getItem("wishlist");
   setWishlistIds(stored ? JSON.parse(stored) : []);
@@ -56,7 +59,18 @@ useEffect(() => {
   const data = getWishlist();
   console.log("Wishlist Data 👉", data);
   setItems(data);
-}, []);
+}, []);const handleBuyNow = (item: any) => {
+  addToCart({
+    id: item.id,
+    name: item.name || item.baseName || "Product",
+    price: item.price || 0,
+    category: item.category || "Uncategorized",
+    imageUrl: item.imageUrl || "",
+  });
+
+  router.push("/cart");
+};
+
 
  return (
   <main className="min-h-screen bg-[#12070b] text-white">
@@ -74,29 +88,47 @@ useEffect(() => {
 
           {/* 🔥 THIS IS WHERE MAP GOES */}
           {items.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white/10 p-4 rounded-xl"
-            >
-              <img
-                src={item.imageUrl || "/placeholder.png"}
-                className="h-40 w-full object-cover rounded"
-              />
+  <div
+    key={item.id}
+    className="bg-white/10 p-4 rounded-xl"
+  >
+    {/* 🔥 CLICK IMAGE → PRODUCT PAGE */}
+    <Link href={`/products/${item.id}`}>
+      <img
+        src={item.imageUrl || "/placeholder.png"}
+        className="h-40 w-full object-cover rounded cursor-pointer"
+      />
+    </Link>
 
-              <h3 className="mt-2">{item.name}</h3>
-              <p>₹{item.price}</p>
+    {/* 🔥 CLICK NAME → PRODUCT PAGE */}
+    <Link href={`/products/${item.id}`}>
+      <h3 className="mt-2 cursor-pointer hover:text-[#f3c46b]">
+        {item.name || item.baseName || "Product"}
+      </h3>
+    </Link>
 
-              <button
-                onClick={() => {
-                  removeFromWishlist(item.id);
-                  setItems(getWishlist());
-                }}
-                className="mt-2 bg-red-500 px-3 py-1 rounded"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
+    <p>₹{item.price}</p>
+
+    {/* 🔥 BUY NOW BUTTON */}
+    <button
+      onClick={() => handleBuyNow(item)}
+      className="mt-2 w-full bg-green-500 px-3 py-2 rounded font-semibold"
+    >
+      Buy Now ⚡
+    </button>
+
+    {/* ❌ REMOVE BUTTON */}
+    <button
+      onClick={() => {
+        removeFromWishlist(item.id);
+        setItems(getWishlist());
+      }}
+      className="mt-2 w-full bg-red-500 px-3 py-1 rounded"
+    >
+      Remove
+    </button>
+  </div>
+))}
 
         </div>
       )}

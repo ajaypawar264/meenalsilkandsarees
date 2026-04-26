@@ -171,40 +171,72 @@ export default function AdminOrdersPage() {
       grandTotal,
     };
   };
+const restoreStock = async (order: Order) => {
+  try {
+    for (const item of order.items) {
+      const productRef = doc(db, "products", item.id);
 
-  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    try {
-      await updateDoc(doc(db, "orders", orderId), {
-        status,
-        updatedAt: serverTimestamp(),
+      const qty = item.qty || item.quantity || 1;
+
+      await updateDoc(productRef, {
+        stock: increment(qty), // 🔥 direct add
       });
-
-      setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId ? { ...order, status } : order
-        )
-      );
-
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder((prev) => (prev ? { ...prev, status } : prev));
-      }
-
-      if (billOrder?.id === orderId) {
-        setBillOrder((prev) => (prev ? { ...prev, status } : prev));
-      }
-    } catch (error) {
-      console.error("Status update error:", error);
-      alert("Order status update zala nahi.");
     }
-  };
+  } catch (error) {
+    console.error("Stock restore error:", error);
+  }
+};
+const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+  try {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+
+    if (order.status === "Cancelled") {
+      alert("Already Cancelled");
+      return;
+    }
+
+    if (status === "Cancelled") {
+      await restoreStock(order);
+    }
+
+    await updateDoc(doc(db, "orders", orderId), {
+      status,
+      updatedAt: serverTimestamp(),
+    });
+
+    // ✅ UI update
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId ? { ...o, status } : o
+      )
+    );
+
+  } catch (error) {
+    console.error("Status update error:", error);
+  }
+}; // ✅ IMPORTANT CLOSE
+
+    // UI update same rahu de
 
   const verifyPayment = async (orderId: string) => {
     try {
-      await updateDoc(doc(db, "orders", orderId), {
-        paymentStatus: "Paid",
-        status: "Processing",
-        updatedAt: serverTimestamp(),
-      });
+   const order = orders.find((o) => o.id === orderId);
+
+if (!order) return;
+
+// 🔥 already cancelled check
+
+
+// 🔥 IF CANCEL → RESTORE STOCK
+if (status === "Cancelled") {
+  await restoreStock(order);
+}
+
+await updateDoc(doc(db, "orders", orderId), {
+  status,
+  updatedAt: serverTimestamp(),
+});
 
       setOrders((prev) =>
         prev.map((order) =>

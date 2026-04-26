@@ -185,7 +185,7 @@ useEffect(() => {
   return {
     id: docItem.id,
     ...data,
-
+inStock: Number(data.stock ?? 0) > 0,
     // 🔥 MAIN FIX
     imageUrl: data.imageUrl || data.colors?.[0]?.imageUrl || "",
 
@@ -730,10 +730,10 @@ const discount =
         <div className="mt-3 flex items-center justify-between">
          <span
   className={`text-sm font-medium ${
-    p.inStock ? "text-green-600" : "text-red-500"
+    (p.stock ?? 0) > 0 ? "text-green-600" : "text-red-500"
   }`}
 >
-  {p.inStock ? "In Stock" : "Out of Stock"}
+  {(p.stock ?? 0) > 0 ? "In Stock" : "Out of Stock"}
 </span>
         </div>
 
@@ -759,7 +759,7 @@ const discount =
     alert("Item added to cart ✅");
   }}
 
-            disabled={!p.inStock}
+            disabled={(p.stock ?? 0) <= 0}
             className="rounded-full bg-gradient-to-r from-[#d4a848] to-[#f2c76b] px-5 py-3 text-sm font-semibold text-[#2b1208] transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-white/70"
           >
             {p.inStock ? "Add to Cart" : "Sold Out"}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { onSnapshot } from "firebase/firestore";
 import {
   collection,
   getDocs,
@@ -63,29 +64,25 @@ const [stockTab, setStockTab] = useState<"all" | "in" | "out">("all");
   return matchSearch && matchStock;
 });
 
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-      const snap = await getDocs(q);
+ useEffect(() => {
+  setLoading(true);
 
-      const data: Product[] = snap.docs.map((docItem) => ({
-        id: docItem.id,
-        ...(docItem.data() as Omit<Product, "id">),
-      }));
+  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
 
-      setProducts(data);
-    } catch (error) {
-      console.error(error);
-      alert("Products load zhale nahi");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const data: Product[] = snapshot.docs.map((docItem) => ({
+      id: docItem.id,
+      ...(docItem.data() as Omit<Product, "id">),
+    }));
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+    setProducts(data);
+    setLoading(false);
+  });
+
+  return () => unsubscribe();
+}, []);
+
+ 
 
   const handleImageChange = async (
     productId: string,
@@ -339,11 +336,11 @@ await updateDoc(doc(db, "products", productId), cleanData);
   console.log("PRODUCT:", product);
   console.log("MEDIA:", product.mediaFiles);
 
-  const previewImage =
+ const previewImage =
   previewMap[product.id] ||
-  product.mediaFiles?.[0]?.url ||
   product.imageUrl ||
-  (product as any).colors?.[0]?.imageUrl ||
+  product.mediaFiles?.find(f => f.url)?.url ||
+  product.colors?.find(c => c.imageUrl)?.imageUrl ||
   "";
 
 
@@ -356,7 +353,7 @@ await updateDoc(doc(db, "products", productId), cleanData);
                   <div>
                  {previewImage ? (
   <img
-    src={previewImage + "?tr=f-jpg"}
+    src={previewImage}
     alt={product.name}
     className="h-28 w-28 rounded-2xl object-cover"
     onError={(e) => {
@@ -397,9 +394,24 @@ await updateDoc(doc(db, "products", productId), cleanData);
                       SubCategory: {product.subCategory || "-"}
                     </p>
 
-                    <p className="mt-1 text-white/70">
-                      Color: {product.color || "-"}
-                    </p>
+                    <div className="mt-2">
+  <p className="text-white/70">Colors:</p>
+
+  {product.colors && product.colors.length > 0 ? (
+    <div className="flex flex-wrap gap-2 mt-1">
+      {product.colors.map((c, idx) => (
+        <span
+          key={idx}
+          className="px-2 py-1 text-xs rounded-lg bg-yellow-500/20 text-yellow-300"
+        >
+          {c.color} ({c.stock})
+        </span>
+      ))}
+    </div>
+  ) : (
+    <p className="text-white/50 text-sm">No colors</p>
+  )}
+</div>
 
                     <p className="mt-1 text-sm text-white/60">
                       Sold: {product.sold ?? 0}
