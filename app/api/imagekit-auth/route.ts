@@ -5,16 +5,16 @@ import ImageKit from "imagekit";
 export async function GET() {
   try {
     const imagekit = new ImageKit({
-      publicKey: "public_y//9A+Zokt7RiIMVeN5Tfnk00DA=",
-      privateKey: "private_hoNSFUb9SyXk7mOPNfrGkp03uL0=",
-      urlEndpoint: "https://ik.imagekit.io/cilqld8nz",
+      publicKey: "public_AmeYFtR722t2kivuv4wPyamuKoU=",
+      privateKey: "private_FOwZB0U8CfE+dCMjalQFVCrj/wo=",
+      urlEndpoint: "https://ik.imagekit.io/q76fdki6i",
     });
 
     const authParams = imagekit.getAuthenticationParameters();
 
     return NextResponse.json({
       ...authParams,
-      publicKey: "public_y//9A+Zokt7RiIMVeN5Tfnk00DA=",
+      publicKey: "public_AmeYFtR722t2kivuv4wPyamuKoU=",
     });
   } catch (error) {
     console.error("ImageKit auth route error:", error);
@@ -42,9 +42,9 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(bytes);
 
     const imagekit = new ImageKit({
-      publicKey: "public_y//9A+Zokt7RiIMVeN5Tfnk00DA=",
-      privateKey: "private_hoNSFUb9SyXk7mOPNfrGkp03uL0=",
-      urlEndpoint: "https://ik.imagekit.io/cilqld8nz",
+      publicKey: "public_AmeYFtR722t2kivuv4wPyamuKoU=",
+      privateKey: "private_FOwZB0U8CfE+dCMjalQFVCrj/wo=",
+      urlEndpoint: "https://ik.imagekit.io/q76fdki6i",
     });
 
     const uploadResponse = await imagekit.upload({

@@ -134,14 +134,16 @@ export default function PaymentPage() {
 
         <div className="mt-6 flex justify-center">
           <img
-            src="/qr2.jpeg"
+            src="\QR.jpg"
             alt="UPI QR Code"
             className="w-64 rounded-xl border border-white/10 bg-white p-2"
           />
         </div>
 
         <p className="mt-4 text-center text-base font-semibold">
-          UPI ID: Q451984462@ybl
+          AC no :0321001022154<br/>
+          IFSC :COSB0000032<br/>
+          BRANCH : Warje pune 411052
         </p>
 
         <p className="mt-2 text-center text-sm text-white/60">
