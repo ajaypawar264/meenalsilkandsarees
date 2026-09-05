@@ -7,7 +7,7 @@ import Reviews from "./components/Reviews";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, query, doc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { addToCart } from "@/lib/cart";
 import Header from "./components/Header";
@@ -133,95 +133,111 @@ useEffect(() => {
 }, []);
 const toggleWishlist = (product: Product) => {
   const stored = localStorage.getItem("wishlist");
+
   let wishlist = stored ? JSON.parse(stored) : [];
 
   const exists = wishlist.find((item: any) => item.id === product.id);
 
   if (exists) {
-    wishlist = wishlist.filter((item: any) => item.id !== product.id);
+    wishlist = wishlist.filter(
+      (item: any) => item.id !== product.id
+    );
   } else {
     wishlist.push({
       id: product.id,
       name: product.name,
       price: product.price,
+
       imageUrl:
         product.imageUrl ||
         product.imageUrls?.[0] ||
         product.mediaFiles?.find((m) => m.type === "image")?.url ||
+        product.imageBase64 ||
         "",
+
+      imageUrls: product.imageUrls || [],
+
+      mediaFiles: product.mediaFiles || [],
     });
   }
 
   localStorage.setItem("wishlist", JSON.stringify(wishlist));
 
-  // 🔥 update state
   setWishlist(wishlist.map((item: any) => item.id));
 
-  // 🔥 header update event
   window.dispatchEvent(new Event("wishlistUpdated"));
 };
 useEffect(() => {
-  const unsubscribe = onSnapshot(doc(db, "heroSection", "main"), (snap) => {
-    console.log("SNAP:", snap.exists(), snap.data());
+  const fetchHero = async () => {
+    try {
+      const snap = await getDoc(doc(db, "heroSection", "main"));
 
-    if (snap.exists()) {
-      setHeroImages(snap.data()?.items || []);
-    } else {
-      console.log("No document found");
-    }
-  });
+      console.log("SNAP:", snap.exists(), snap.data());
 
-  return () => unsubscribe();
-}, []);
-  useEffect(() => {
-    const q = query(collection(db, "products"));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-       const items: Product[] = snapshot.docs.map((docItem) => {
-  const data = docItem.data() as any;
-
-  return {
-    id: docItem.id,
-    ...data,
-inStock: Number(data.stock ?? 0) > 0,
-    // 🔥 MAIN FIX
-    imageUrl: data.imageUrl || data.colors?.[0]?.imageUrl || "",
-
-    imageUrls: data.imageUrls || [],
-    videoUrls: data.videoUrls || [],
-    mediaFiles: data.mediaFiles || [],
-  };
-});
-
-        const sortedItems = items.sort((a, b) => {
-          const aTime = a?.createdAt?.seconds ?? 0;
-          const bTime = b?.createdAt?.seconds ?? 0;
-          return bTime - aTime;
-        });
-
-        setProducts(sortedItems);
-      },
-      (error) => {
-        console.error("Products fetch error:", error);
+      if (snap.exists()) {
+        setHeroImages(snap.data()?.items || []);
+      } else {
+        console.log("No document found");
       }
-    );
+    } catch (error) {
+      console.error("Hero fetch error:", error);
+    }
+  };
 
-    return () => unsubscribe();
-  }, []);
+  fetchHero();
+}, []);
+ useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, "products"));
+
+      const items: Product[] = snapshot.docs.map((docItem) => {
+        const data = docItem.data() as any;
+
+        return {
+          id: docItem.id,
+          ...data,
+          inStock: Number(data.stock ?? 0) > 0,
+          imageUrl: data.imageUrl || data.colors?.[0]?.imageUrl || "",
+          imageUrls: data.imageUrls || [],
+          videoUrls: data.videoUrls || [],
+          mediaFiles: data.mediaFiles || [],
+        };
+      });
+
+      const sortedItems = items.sort((a, b) => {
+        const aTime = a?.createdAt?.seconds ?? 0;
+        const bTime = b?.createdAt?.seconds ?? 0;
+        return bTime - aTime;
+      });
+
+      setProducts(sortedItems);
+    } catch (error) {
+      console.error("Products fetch error:", error);
+    }
+  };
+
+  fetchProducts();
+}, []); 
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, "dailyOffer", "current"), (snap) => {
+  const fetchDailyOffer = async () => {
+    try {
+      const snap = await getDoc(doc(db, "dailyOffer", "current"));
+
       if (snap.exists()) {
         setDailyOfferVideo(snap.data()?.videoUrl || "");
       } else {
         setDailyOfferVideo("");
       }
-    });
+    } catch (error) {
+      console.error("Daily offer fetch error:", error);
+    }
+  };
 
-    return () => unsubscribe();
-  }, []);useEffect(() => {
+  fetchDailyOffer();
+}, []);
+  useEffect(() => {
   if (search.trim() !== "") {
     const section = document.getElementById("products");
     if (section) {
@@ -624,7 +640,7 @@ const featuredProducts = filteredProducts.slice(0, 8);
             No products found.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
            {featuredProducts.map((p) => {
  const price = Number(p.price || 0);
 const originalPrice = Number(p.originalPrice || 0);
@@ -737,10 +753,10 @@ const discount =
 </span>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
+       <div className="mt-4 grid grid-cols-2 gap-2">
           <Link
             href={`/products/${p.id}`}
-            className="rounded-full bg-white/90 px-5 py-3 text-center text-sm font-semibold text-[#1a1a1a] backdrop-blur-md transition hover:bg-white"
+           className="flex min-h-[56px] items-center justify-center rounded-2xl bg-white px-2 py-2 text-sm font-semibold text-black transition hover:scale-105 sm:min-h-[64px] sm:px-4 sm:text-base"
           >
             View
           </Link>
@@ -760,7 +776,7 @@ const discount =
   }}
 
             disabled={(p.stock ?? 0) <= 0}
-            className="rounded-full bg-gradient-to-r from-[#d4a848] to-[#f2c76b] px-5 py-3 text-sm font-semibold text-[#2b1208] transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-white/70"
+           className="flex min-h-[56px] items-center justify-center rounded-2xl bg-[#f2c35b] px-2 py-2 text-sm font-semibold text-black transition hover:scale-90 sm:min-h-[64px] sm:px-4 sm:text-base"
           >
             {p.inStock ? "Add to Cart" : "Sold Out"}
           </button>

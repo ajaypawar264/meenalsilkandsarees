@@ -1,36 +1,35 @@
-import { doc, runTransaction } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+export function getNextOrderId() {
+  const now = new Date();
 
-export async function getNextOrderId() {
-  const ref = doc(db, "counters", "orders");
+  const date =
+    now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
 
-  const id = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
+  const time =
+    String(now.getHours()).padStart(2, "0") +
+    String(now.getMinutes()).padStart(2, "0") +
+    String(now.getSeconds()).padStart(2, "0");
 
-    const current = snap.exists() ? snap.data().value : 1000;
-    const next = current + 1;
+  const random = Math.floor(100 + Math.random() * 900);
 
-    tx.set(ref, { value: next }, { merge: true });
-
-    return next;
-  });
-
-  return `MEENAL-${id}`;
+  return `MEENAL-${date}-${time}-${random}`;
 }
 
-export async function getNextInvoiceNo() {   // 👈 नाव IMPORTANT
-  const ref = doc(db, "counters", "invoice");
+export function getNextInvoiceNo() {
+  const now = new Date();
 
-  const id = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
+  const date =
+    now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
 
-    const current = snap.exists() ? snap.data().value : 5000;
-    const next = current + 1;
+  const time =
+    String(now.getHours()).padStart(2, "0") +
+    String(now.getMinutes()).padStart(2, "0") +
+    String(now.getSeconds()).padStart(2, "0");
 
-    tx.set(ref, { value: next }, { merge: true });
+  const random = Math.floor(100 + Math.random() * 900);
 
-    return next;
-  });
-
-  return `INV-${id}`;
+  return `INV-${date}-${time}-${random}`;
 }

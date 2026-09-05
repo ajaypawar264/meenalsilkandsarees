@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
     "firebase": "^12.10.0",
     "imagekit": "^6.0.0",
     "lucide-react": "^0.577.0",

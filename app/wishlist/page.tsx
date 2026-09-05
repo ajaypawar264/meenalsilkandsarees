@@ -1,138 +1,131 @@
 "use client";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
 import { useEffect, useState } from "react";
 import { getWishlist, removeFromWishlist } from "@/lib/wishlist";
 import Header from "../components/Header";
-import {  query } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { addToCart } from "@/lib/cart";
 import Link from "next/link";
 
 export default function WishlistPage() {
   const router = useRouter();
-  const [products, setProducts] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
-  const [wishlistProducts, setWishlistProducts] = useState<any[]>([]);
-const [wishlistIds, setWishlistIds] = useState<string[]>([]);
 
-useEffect(() => {
-  const stored = localStorage.getItem("wishlist");
-  setWishlistIds(stored ? JSON.parse(stored) : []);
-}, []);
-useEffect(() => {
-  const fetchWishlistProducts = async () => {
-    const saved = localStorage.getItem("wishlist");
-    const ids = saved ? JSON.parse(saved) : [];
+  useEffect(() => {
+    const loadWishlist = () => {
+      const data = getWishlist();
 
-    if (ids.length === 0) {
-      setProducts([]);
-      return;
-    }
+      console.log("Wishlist Data 👉", data);
 
-    const q = query(collection(db, "products"));
-    const snapshot = await getDocs(q);
+      setItems(data);
+    };
 
-    const allProducts = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    loadWishlist();
 
-    const filtered = allProducts.filter(p => ids.includes(p.id));
+    window.addEventListener("wishlistUpdated", loadWishlist);
 
-    setProducts(filtered);
+    return () => {
+      window.removeEventListener("wishlistUpdated", loadWishlist);
+    };
+  }, []);
+
+  const getProductImage = (item: any) => {
+    return (
+      item.imageUrl ||
+      item.imageUrls?.[0] ||
+      item.mediaFiles?.find((m: any) => m.type === "image")?.url ||
+      item.imageBase64 ||
+      "/placeholder.png"
+    );
   };
 
-  fetchWishlistProducts();
-}, []);
+  const handleBuyNow = (item: any) => {
+    addToCart({
+      id: item.id,
+      name: item.name || item.baseName || "Product",
+      price: item.price || 0,
+      category: item.category || "Uncategorized",
+      imageUrl: getProductImage(item),
+    });
 
+    router.push("/cart");
+  };
 
-useEffect(() => {
-  const data = getWishlist();
-  console.log("Wishlist Data:", data); // 🔥 हे add कर
-  setItems(data);
-}, []);
-  useEffect(() => {
-    setItems(getWishlist());
-  }, []);
-  useEffect(() => {
-  const data = getWishlist();
-  console.log("Wishlist Data 👉", data);
-  setItems(data);
-}, []);const handleBuyNow = (item: any) => {
-  addToCart({
-    id: item.id,
-    name: item.name || item.baseName || "Product",
-    price: item.price || 0,
-    category: item.category || "Uncategorized",
-    imageUrl: item.imageUrl || "",
-  });
+  const handleRemove = (id: string) => {
+    removeFromWishlist(id);
 
-  router.push("/cart");
-};
+    const updated = getWishlist();
+    setItems(updated);
 
+    window.dispatchEvent(new Event("wishlistUpdated"));
+  };
 
- return (
-  <main className="min-h-screen bg-[#12070b] text-white">
-    <Header />
+  return (
+    <main className="min-h-screen bg-[#12070b] text-white">
+      <Header />
 
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="text-3xl font-bold text-[#f3c46b] mb-8">
-        ❤️ Wishlist
-      </h1>
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <h1 className="mb-8 text-3xl font-bold text-[#f3c46b]">
+          ❤️ Wishlist
+        </h1>
 
-      {items.length === 0 ? (
-        <p>No items in wishlist</p>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {items.length === 0 ? (
+          <div className="py-20 text-center">
+            <p className="text-lg text-white/70">
+              No items in wishlist
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="overflow-hidden rounded-xl bg-white/10 p-4"
+              >
+                {/* PRODUCT IMAGE */}
+                <Link href={`/products/${item.id}`}>
+                  <img
+                    src={getProductImage(item)}
+                    alt={item.name || "Product"}
+                    className="h-40 w-full cursor-pointer rounded object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.png";
+                    }}
+                  />
+                </Link>
 
-          {/* 🔥 THIS IS WHERE MAP GOES */}
-          {items.map((item) => (
-  <div
-    key={item.id}
-    className="bg-white/10 p-4 rounded-xl"
-  >
-    {/* 🔥 CLICK IMAGE → PRODUCT PAGE */}
-    <Link href={`/products/${item.id}`}>
-      <img
-        src={item.imageUrl || "/placeholder.png"}
-        className="h-40 w-full object-cover rounded cursor-pointer"
-      />
-    </Link>
+                {/* PRODUCT NAME */}
+                <Link href={`/products/${item.id}`}>
+                  <h3 className="mt-3 cursor-pointer font-semibold hover:text-[#f3c46b]">
+                    {item.name || item.baseName || "Product"}
+                  </h3>
+                </Link>
 
-    {/* 🔥 CLICK NAME → PRODUCT PAGE */}
-    <Link href={`/products/${item.id}`}>
-      <h3 className="mt-2 cursor-pointer hover:text-[#f3c46b]">
-        {item.name || item.baseName || "Product"}
-      </h3>
-    </Link>
+                {/* PRICE */}
+                <p className="mt-1 text-lg font-semibold text-[#f3c46b]">
+                  ₹{item.price || 0}
+                </p>
 
-    <p>₹{item.price}</p>
+                {/* BUY NOW */}
+                <button
+                  onClick={() => handleBuyNow(item)}
+                  className="mt-3 w-full rounded bg-green-500 px-3 py-2 font-semibold text-white hover:bg-green-600"
+                >
+                  Buy Now ⚡
+                </button>
 
-    {/* 🔥 BUY NOW BUTTON */}
-    <button
-      onClick={() => handleBuyNow(item)}
-      className="mt-2 w-full bg-green-500 px-3 py-2 rounded font-semibold"
-    >
-      Buy Now ⚡
-    </button>
-
-    {/* ❌ REMOVE BUTTON */}
-    <button
-      onClick={() => {
-        removeFromWishlist(item.id);
-        setItems(getWishlist());
-      }}
-      className="mt-2 w-full bg-red-500 px-3 py-1 rounded"
-    >
-      Remove
-    </button>
-  </div>
-))}
-
-        </div>
-      )}
-    </div>
-  </main>
-);
+                {/* REMOVE */}
+                <button
+                  onClick={() => handleRemove(item.id)}
+                  className="mt-2 w-full rounded bg-red-500 px-3 py-2 font-semibold text-white hover:bg-red-600"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
 }
