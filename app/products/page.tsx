@@ -465,7 +465,7 @@ export default function ProductsPage() {
       category: product.category,
       imageUrl:
         product.imageUrl || "",
-      qty: 1,
+   
     });
 
     sessionStorage.setItem(
