@@ -30,25 +30,13 @@ function getImageKit() {
 // GET → ImageKit authentication parameters
 export async function GET() {
   try {
-<<<<<<< HEAD
-    const imagekit = new ImageKit({
-      publicKey: "public_AmeYFtR722t2kivuv4wPyamuKoU=",
-      privateKey: "private_FOwZB0U8CfE+dCMjalQFVCrj/wo=",
-      urlEndpoint: "https://ik.imagekit.io/q76fdki6i",
-    });
-=======
     const imagekit = getImageKit();
->>>>>>> 580f1ff (Update ecommerce website and checkout)
 
     const authParams = imagekit.getAuthenticationParameters();
 
     return NextResponse.json({
       ...authParams,
-<<<<<<< HEAD
-      publicKey: "public_AmeYFtR722t2kivuv4wPyamuKoU=",
-=======
       publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
->>>>>>> 580f1ff (Update ecommerce website and checkout)
     });
   } catch (error) {
     console.error("IMAGEKIT AUTH ERROR:", error);
@@ -87,15 +75,6 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-<<<<<<< HEAD
-    const imagekit = new ImageKit({
-      publicKey: "public_AmeYFtR722t2kivuv4wPyamuKoU=",
-      privateKey: "private_FOwZB0U8CfE+dCMjalQFVCrj/wo=",
-      urlEndpoint: "https://ik.imagekit.io/q76fdki6i",
-    });
-
-=======
->>>>>>> 580f1ff (Update ecommerce website and checkout)
     const uploadResponse = await imagekit.upload({
       file: buffer,
       fileName: file.name,
