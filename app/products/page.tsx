@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import {
   collection,
@@ -58,7 +58,7 @@ type Product = {
   mediaFiles?: any[];
 };
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -81,7 +81,6 @@ export default function ProductsPage() {
 
   const [wishlist, setWishlist] = useState<string[]>([]);
 
-  // FILTER OPEN / CLOSE
   const [showFilters, setShowFilters] =
     useState(false);
 
@@ -282,7 +281,6 @@ export default function ProductsPage() {
 
   const handleApplyPrice = () => {
     let min = Number(minPrice);
-
     let max = Number(maxPrice);
 
     if (!Number.isFinite(min) || min < 0) {
@@ -439,7 +437,6 @@ export default function ProductsPage() {
       category: product.category,
       imageUrl:
         product.imageUrl || "",
-      qty: 1,
     });
 
     alert(
@@ -465,7 +462,6 @@ export default function ProductsPage() {
       category: product.category,
       imageUrl:
         product.imageUrl || "",
-   
     });
 
     sessionStorage.setItem(
@@ -496,14 +492,12 @@ export default function ProductsPage() {
 
       <Header />
 
-     <section className="mx-auto max-w-7xl px-4 pb-8 pt-[180px] sm:pt-[180px] md:px-6 md:pt-8">
+      <section className="mx-auto max-w-7xl px-4 pb-8 pt-[180px] sm:pt-[180px] md:px-6 md:pt-8">
         <div className="grid gap-8">
 
           <div>
 
-            {/* ================================= */}
             {/* PAGE TITLE */}
-            {/* ================================= */}
 
             <div className="mb-6">
 
@@ -519,9 +513,7 @@ export default function ProductsPage() {
 
             </div>
 
-            {/* ================================= */}
             {/* SEARCH + FILTER */}
-            {/* ================================= */}
 
             <div className="mb-8">
 
@@ -578,9 +570,7 @@ export default function ProductsPage() {
 
               </div>
 
-              {/* ================================= */}
               {/* FILTER PANEL */}
-              {/* ================================= */}
 
               {showFilters && (
                 <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -590,6 +580,7 @@ export default function ProductsPage() {
                     {/* CATEGORY */}
 
                     <div>
+
                       <label className="mb-2 block text-sm font-semibold text-slate-700">
                         Category
                       </label>
@@ -634,11 +625,13 @@ export default function ProductsPage() {
                         )}
 
                       </select>
+
                     </div>
 
                     {/* STOCK */}
 
                     <div>
+
                       <label className="mb-2 block text-sm font-semibold text-slate-700">
                         Stock
                       </label>
@@ -669,11 +662,13 @@ export default function ProductsPage() {
                         </option>
 
                       </select>
+
                     </div>
 
                     {/* MIN PRICE */}
 
                     <div>
+
                       <label className="mb-2 block text-sm font-semibold text-slate-700">
                         Min Price
                       </label>
@@ -697,11 +692,13 @@ export default function ProductsPage() {
                         />
 
                       </div>
+
                     </div>
 
                     {/* MAX PRICE */}
 
                     <div>
+
                       <label className="mb-2 block text-sm font-semibold text-slate-700">
                         Max Price
                       </label>
@@ -725,13 +722,12 @@ export default function ProductsPage() {
                         />
 
                       </div>
+
                     </div>
 
                   </div>
 
-                  {/* ================================= */}
                   {/* FILTER BUTTONS */}
-                  {/* ================================= */}
 
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
 
@@ -753,9 +749,7 @@ export default function ProductsPage() {
 
                   </div>
 
-                  {/* ================================= */}
                   {/* SELECTED CATEGORIES */}
-                  {/* ================================= */}
 
                   {selectedCategories.length >
                     0 && (
@@ -787,9 +781,7 @@ export default function ProductsPage() {
                 </div>
               )}
 
-              {/* ================================= */}
               {/* ACTIVE FILTER INFO */}
-              {/* ================================= */}
 
               {hasActiveFilters &&
                 !showFilters && (
@@ -847,11 +839,7 @@ export default function ProductsPage() {
 
             </div>
 
-            {/* ===================================== */}
             {/* PRODUCTS GRID */}
-            {/* MOBILE = 2 */}
-            {/* DESKTOP = 4 */}
-            {/* ===================================== */}
 
             {filteredProducts.length ===
             0 ? (
@@ -899,9 +887,7 @@ export default function ProductsPage() {
                         className="group overflow-hidden rounded-[20px] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md sm:rounded-[28px]"
                       >
 
-                        {/* ================================= */}
                         {/* PHOTO */}
-                        {/* ================================= */}
 
                         <div className="relative h-[220px] w-full overflow-hidden rounded-[16px] bg-black sm:h-[320px] sm:rounded-[20px]">
 
@@ -951,9 +937,7 @@ export default function ProductsPage() {
 
                           )}
 
-                          {/* ================================= */}
                           {/* PHOTO BUTTONS */}
-                          {/* ================================= */}
 
                           <div
                             className="
@@ -1089,9 +1073,7 @@ export default function ProductsPage() {
 
                         </div>
 
-                        {/* ================================= */}
                         {/* PRODUCT DETAILS */}
-                        {/* ================================= */}
 
                         <div className="p-3 sm:p-5">
 
@@ -1167,10 +1149,7 @@ export default function ProductsPage() {
 
                           </div>
 
-                          {/* ================================= */}
                           {/* BOTTOM BUTTONS */}
-                          {/* BUY NOW + SHARE */}
-                          {/* ================================= */}
 
                           <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3">
 
@@ -1280,5 +1259,25 @@ export default function ProductsPage() {
       </section>
 
     </main>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f7f7f9] text-slate-900">
+          <Header />
+
+          <section className="mx-auto max-w-7xl px-4 pt-[180px] md:px-6 md:pt-8">
+            <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+              Loading products...
+            </div>
+          </section>
+        </main>
+      }
+    >
+      <ProductsPageContent />
+    </Suspense>
   );
 }
